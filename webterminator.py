@@ -66,7 +66,7 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-TEMPLATE_FOLDER = os.path.join(BASE_DIR, "templates")
+TEMPLATE_FOLDER = os.path.join(BASE_DIR, "Templates")
 STATIC_ATTACHMENTS_FOLDER = os.path.join(BASE_DIR, "static_attachments")
 COUNTERS_FILE = os.path.join(BASE_DIR, "history_counters.json")
 ARCHIVE_FOLDER = os.path.join(BASE_DIR, "FINAL_ARCHIVE")
