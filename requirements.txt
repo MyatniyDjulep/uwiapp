@@ -9,3 +9,4 @@ pydantic==2.6.4
 pymupdf
 docx2pdf
 httpx
+Pillow
