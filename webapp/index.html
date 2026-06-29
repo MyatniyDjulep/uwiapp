@@ -1255,8 +1255,14 @@ window.onload = () => {
   try {
     const params = new URLSearchParams(raw);
     const startParam = params.get("start_param") || new URLSearchParams(location.search).get("data");
+    console.log("DEBUG initData:", raw.substring(0, 200));
+    console.log("DEBUG location.search:", location.search.substring(0, 200));
+    console.log("DEBUG startParam:", startParam ? startParam.substring(0, 100) : "NULL");
     if (startParam) vesselData = JSON.parse(decodeURIComponent(atob(startParam)));
-  } catch(e) {}
+    console.log("DEBUG vesselData:", vesselData ? "PARSED OK" : "NULL");
+  } catch(e) {
+    console.error("DEBUG parse error:", e);
+  }
 
   if (!vesselData) {
     vesselData = {
