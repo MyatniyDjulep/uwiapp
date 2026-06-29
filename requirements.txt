@@ -6,3 +6,6 @@ openpyxl==3.1.2
 python-dotenv==1.0.1
 openai==1.14.1
 pydantic==2.6.4
+pymupdf
+docx2pdf
+httpx
