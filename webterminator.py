@@ -93,6 +93,14 @@ def log_error(context_message, error_exception=None):
         log_msg += f"Детали ошибки: {str(error_exception)}\n"
         log_msg += f"Стек вызовов:\n{traceback.format_exc()}\n"
     log_msg += "-"*80 + "\n"
+    
+    # Выводим в stderr, чтобы логи были видны в панели управления Render
+    try:
+        sys.stderr.write(log_msg)
+        sys.stderr.flush()
+    except:
+        pass
+        
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(log_msg)
