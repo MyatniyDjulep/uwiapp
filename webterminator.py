@@ -506,6 +506,14 @@ def connect_ssl_via_proxy(target_host, target_port, proxy_url, timeout=120):
     ssl_sock = context.wrap_socket(sock, server_hostname=target_host)
     return ssl_sock
 
+class ProxiedIMAP4_SSL(imaplib.IMAP4_SSL):
+    def __init__(self, host, port, ssl_sock, timeout=None):
+        self._ssl_sock = ssl_sock
+        super().__init__(host, port, timeout=timeout)
+        
+    def _create_socket(self, timeout):
+        return self._ssl_sock
+
 def transliterate_filename(filename):
     cyrillic = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
     latin = [
@@ -928,7 +936,7 @@ def mail_checker_daemon():
         try:
             if PROXY_URL:
                 ssl_sock = connect_ssl_via_proxy(IMAP_SERVER, IMAP_PORT, PROXY_URL, timeout=120)
-                mail = imaplib.IMAP4_SSL(sock=ssl_sock)
+                mail = ProxiedIMAP4_SSL(IMAP_SERVER, IMAP_PORT, ssl_sock, timeout=120)
             else:
                 mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
             mail.login(EMAIL_SENDER, EMAIL_PASSWORD)
