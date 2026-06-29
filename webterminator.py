@@ -542,6 +542,8 @@ def connect_plain_socket_via_proxy(target_host, target_port, proxy_url, timeout=
 class ProxiedSMTP(smtplib.SMTP):
     def __init__(self, host, port, sock, timeout=None):
         self._my_sock = sock
+        self._host = host
+        self.host = host
         super().__init__(timeout=timeout)
         self.connect(host, port)
         
@@ -610,7 +612,7 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
             server = ProxiedSMTP(SMTP_SERVER, 2525, plain_sock, timeout=120)
             with server:
                 server.ehlo()
-                server.starttls(server_hostname=SMTP_SERVER)
+                server.starttls()
                 server.ehlo()
                 server.login(EMAIL_SENDER, EMAIL_PASSWORD)
                 server.send_message(msg)
