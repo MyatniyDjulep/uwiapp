@@ -176,6 +176,7 @@ COMPANIES_DATA = {
 }
 
 PROXY_URL = os.getenv("PROXY_URL", "").strip()
+BOT_ACTIVE = True
 
 if PROXY_URL:
     http_client = httpx.Client(proxy=PROXY_URL, timeout=60.0)
@@ -1007,6 +1008,9 @@ def mail_checker_daemon():
     fail_count = 0
 
     while True:
+        if not BOT_ACTIVE:
+            time.sleep(5)
+            continue
         try:
             if PROXY_URL:
                 ssl_sock = connect_ssl_via_proxy(IMAP_SERVER, IMAP_PORT, PROXY_URL, timeout=120)
@@ -1803,6 +1807,24 @@ async def api_delete_history(act_number: str):
     save_history_db(db)
     return {"status": "success"}
 
+@app.get("/api/system/status")
+async def api_system_status():
+    return {"bot_active": BOT_ACTIVE}
+
+@app.post("/api/system/toggle")
+async def api_system_toggle():
+    global BOT_ACTIVE
+    BOT_ACTIVE = not BOT_ACTIVE
+    return {"status": "success", "bot_active": BOT_ACTIVE}
+
+@app.post("/api/system/restart")
+async def api_system_restart(background_tasks: BackgroundTasks):
+    def exit_after_delay():
+        time.sleep(1)
+        os._exit(0)
+    background_tasks.add_task(exit_after_delay)
+    return {"status": "success", "message": "Бот перезагружается..."}
+
 class ConfirmRequest(BaseModel):
     action: str
 
@@ -1884,6 +1906,9 @@ def polling_worker():
         log_error("Не удалось получить начальный offset", e)
 
     while True:
+        if not BOT_ACTIVE:
+            time.sleep(5)
+            continue
         try:
             updates = bot.get_updates(
                 offset=last_update_id + 1,

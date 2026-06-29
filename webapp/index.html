@@ -1097,6 +1097,18 @@
     </div>
   </div>
 
+  <div class="section-label">Управление системой</div>
+  <div class="card glass" style="padding: 16px; display: flex; flex-direction: column; gap: 12px; margin: 0 12px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: 13.5px; font-weight: 700; color: var(--text);">Состояние бот-сервиса:</span>
+      <span id="system-bot-status-badge" style="font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); color: var(--subtext); background: rgba(255,255,255,0.05);">Загрузка...</span>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="btn-system-toggle" onclick="toggleBotStatus()" style="flex: 1; padding: 12px; border-radius: var(--r-sm); font-size: 12.5px; font-weight: 700; border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.05); color: var(--text);">🛑 Остановить</button>
+      <button onclick="restartBotSystem()" style="flex: 1; padding: 12px; border-radius: var(--r-sm); font-size: 12.5px; font-weight: 700; border: 1px solid rgba(0, 198, 255, 0.25); color: var(--accent); background: rgba(0, 198, 255, 0.08); cursor: pointer; transition: all 0.2s;">🔄 Перезагрузить</button>
+    </div>
+  </div>
+
   <div class="section-label">Выполненные работы</div>
   <div id="historyListContainer" style="display: flex; flex-direction: column; gap: 12px; padding: 0 12px 20px;">
     <!-- Сюда будут рендериться карточки истории -->
@@ -1734,6 +1746,7 @@ async function loadHistoryAndShow() {
   const container = document.getElementById("historyListContainer");
   container.innerHTML = `<div class="loader-sub" style="text-align:center; padding:20px; font-style:italic;">Загрузка истории...</div>`;
   switchScreen("screen-history");
+  updateSystemStatusUI();
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/history`);
@@ -1845,6 +1858,66 @@ async function deleteHistoryEntry(actNumber) {
       tg.HapticFeedback.notificationOccurred("success");
     } catch (err) {
       tg.showAlert(\`Не удалось удалить запись: \${err.message}\`);
+    }
+  });
+}
+
+async function updateSystemStatusUI() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/system/status`);
+    if (!res.ok) throw new Error("Status " + res.status);
+    const data = await res.json();
+    const badge = document.getElementById("system-bot-status-badge");
+    const toggleBtn = document.getElementById("btn-system-toggle");
+    
+    if (data.bot_active) {
+      badge.textContent = "АКТИВЕН";
+      badge.style.color = "var(--success)";
+      badge.style.background = "rgba(0, 229, 160, 0.1)";
+      badge.style.borderColor = "rgba(0, 229, 160, 0.2)";
+      toggleBtn.textContent = "🛑 Остановить";
+      toggleBtn.style.color = "var(--danger)";
+      toggleBtn.style.background = "var(--danger-dim)";
+      toggleBtn.style.borderColor = "rgba(255, 77, 109, 0.25)";
+    } else {
+      badge.textContent = "ОСТАНОВЛЕН";
+      badge.style.color = "var(--danger)";
+      badge.style.background = "var(--danger-dim)";
+      badge.style.borderColor = "rgba(255, 77, 109, 0.2)";
+      toggleBtn.textContent = "▶️ Запустить";
+      toggleBtn.style.color = "var(--success)";
+      toggleBtn.style.background = "rgba(0, 229, 160, 0.1)";
+      toggleBtn.style.borderColor = "rgba(0, 229, 160, 0.25)";
+    }
+  } catch (err) {
+    console.error("Failed to load system status", err);
+  }
+}
+
+async function toggleBotStatus() {
+  tg.HapticFeedback.impactOccurred("medium");
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/system/toggle`, { method: "POST" });
+    if (!res.ok) throw new Error("Status " + res.status);
+    await updateSystemStatusUI();
+    tg.HapticFeedback.notificationOccurred("success");
+  } catch (err) {
+    tg.showAlert(`Не удалось переключить статус: ${err.message}`);
+  }
+}
+
+function restartBotSystem() {
+  tg.showConfirm("Вы действительно хотите перезагрузить бота? Контейнер на Render будет перезапущен с нуля.", async (ok) => {
+    if (!ok) return;
+    tg.HapticFeedback.notificationOccurred("warning");
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/system/restart`, { method: "POST" });
+      if (!res.ok) throw new Error("Status " + res.status);
+      tg.showAlert("Бот перезагружается. Пожалуйста, подождите 30-40 секунд.");
+      tg.close();
+    } catch (err) {
+      tg.showAlert(`Не удалось отправить команду перезапуска: ${err.message}`);
     }
   });
 }
