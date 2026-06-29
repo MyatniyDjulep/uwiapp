@@ -506,6 +506,48 @@ def connect_ssl_via_proxy(target_host, target_port, proxy_url, timeout=120):
     ssl_sock = context.wrap_socket(sock, server_hostname=target_host)
     return ssl_sock
 
+def connect_plain_socket_via_proxy(target_host, target_port, proxy_url, timeout=120):
+    parsed = urllib.parse.urlparse(proxy_url)
+    proxy_host = parsed.hostname
+    proxy_port = parsed.port or 8000
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    sock.connect((proxy_host, proxy_port))
+    
+    connect_req = f"CONNECT {target_host}:{target_port} HTTP/1.1\r\n"
+    connect_req += f"Host: {target_host}:{target_port}\r\n"
+    if parsed.username and parsed.password:
+        auth_str = f"{parsed.username}:{parsed.password}"
+        auth_b64 = base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
+        connect_req += f"Proxy-Authorization: Basic {auth_b64}\r\n"
+    connect_req += "\r\n"
+    
+    sock.sendall(connect_req.encode('utf-8'))
+    
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        chunk = sock.recv(1024)
+        if not chunk:
+            break
+        resp += chunk
+        
+    status_line = resp.split(b"\r\n")[0].decode('utf-8', errors='ignore')
+    if "200" not in status_line:
+        sock.close()
+        raise Exception(f"Прокси отказал в CONNECT туннеле: {status_line}")
+        
+    return sock
+
+class ProxiedSMTP(smtplib.SMTP):
+    def __init__(self, host, port, sock, timeout=None):
+        self._my_sock = sock
+        super().__init__(timeout=timeout)
+        self.connect(host, port)
+        
+    def _get_socket(self, host, port, timeout):
+        return self._my_sock
+
 class ProxiedIMAP4_SSL(imaplib.IMAP4_SSL):
     def __init__(self, host, port, ssl_sock, timeout=None):
         self._ssl_sock = ssl_sock
@@ -563,14 +605,20 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
                 msg.add_attachment(fp.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
                 
         if PROXY_URL:
-            ssl_sock = connect_ssl_via_proxy(SMTP_SERVER, SMTP_PORT, PROXY_URL, timeout=120)
-            server = smtplib.SMTP_SSL(sock=ssl_sock)
+            # На порту 2525 через STARTTLS прокси не блокирует трафик
+            plain_sock = connect_plain_socket_via_proxy(SMTP_SERVER, 2525, PROXY_URL, timeout=120)
+            server = ProxiedSMTP(SMTP_SERVER, 2525, plain_sock, timeout=120)
+            with server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                server.send_message(msg)
         else:
             server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=120)
-            
-        with server:
-            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.send_message(msg)
+            with server:
+                server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                server.send_message(msg)
         return True
     except Exception as e:
         log_error(f"Ошибка SMTP при отправке письма на адрес {receiver_email} для судна {vessel_name}", e)
