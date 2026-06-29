@@ -178,6 +178,10 @@ else:
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY, http_client=http_client)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
+# Настройка тайм-аутов для предотвращения разрыва соединения при отправке тяжелых архивов
+apihelper.CONNECT_TIMEOUT = 60
+apihelper.READ_TIMEOUT = 120
+
 second_bot = None
 if SECOND_BOT_TOKEN:
     try:
@@ -500,7 +504,7 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
             with open(path, 'rb') as fp:
                 msg.add_attachment(fp.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
                 
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=120) as server:
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
         return True
@@ -770,7 +774,7 @@ def generate_all_documents(chat_id, start_num, msg_to_edit, task_id=None):
         zip_base = os.path.join(BASE_DIR, "READY_DOCUMENTS", f"DOCUMENTS_{vessel_name}")
         shutil.make_archive(zip_base, 'zip', vessel_output_folder)
         with open(f"{zip_base}.zip", 'rb') as z_file:
-            bot.send_document(chat_id, z_file, caption=f"✅ Пакет документов для {vessel_name} готов!")
+            bot.send_document(chat_id, z_file, caption=f"✅ Пакет документов для {vessel_name} готов!", timeout=120)
         try:
             os.remove(f"{zip_base}.zip")
         except:
