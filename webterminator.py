@@ -467,7 +467,7 @@ def run_isolated_conversion(docx_path, pdf_path):
 import urllib.parse
 import ssl
 
-def connect_smtp_via_proxy(smtp_server, smtp_port, proxy_url, timeout=120):
+def connect_ssl_via_proxy(target_host, target_port, proxy_url, timeout=120):
     parsed = urllib.parse.urlparse(proxy_url)
     proxy_host = parsed.hostname
     proxy_port = parsed.port or 8000
@@ -478,8 +478,8 @@ def connect_smtp_via_proxy(smtp_server, smtp_port, proxy_url, timeout=120):
     sock.connect((proxy_host, proxy_port))
     
     # Формируем заголовки авторизации прокси
-    connect_req = f"CONNECT {smtp_server}:{smtp_port} HTTP/1.1\r\n"
-    connect_req += f"Host: {smtp_server}:{smtp_port}\r\n"
+    connect_req = f"CONNECT {target_host}:{target_port} HTTP/1.1\r\n"
+    connect_req += f"Host: {target_host}:{target_port}\r\n"
     if parsed.username and parsed.password:
         auth_str = f"{parsed.username}:{parsed.password}"
         auth_b64 = base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
@@ -503,7 +503,7 @@ def connect_smtp_via_proxy(smtp_server, smtp_port, proxy_url, timeout=120):
         
     # Оборачиваем сокет в SSL
     context = ssl.create_default_context()
-    ssl_sock = context.wrap_socket(sock, server_hostname=smtp_server)
+    ssl_sock = context.wrap_socket(sock, server_hostname=target_host)
     return ssl_sock
 
 def transliterate_filename(filename):
@@ -555,7 +555,7 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
                 msg.add_attachment(fp.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
                 
         if PROXY_URL:
-            ssl_sock = connect_smtp_via_proxy(SMTP_SERVER, SMTP_PORT, PROXY_URL, timeout=120)
+            ssl_sock = connect_ssl_via_proxy(SMTP_SERVER, SMTP_PORT, PROXY_URL, timeout=120)
             server = smtplib.SMTP_SSL(sock=ssl_sock)
         else:
             server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=120)
@@ -926,7 +926,11 @@ def mail_checker_daemon():
 
     while True:
         try:
-            mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
+            if PROXY_URL:
+                ssl_sock = connect_ssl_via_proxy(IMAP_SERVER, IMAP_PORT, PROXY_URL, timeout=120)
+                mail = imaplib.IMAP4_SSL(sock=ssl_sock)
+            else:
+                mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
             mail.login(EMAIL_SENDER, EMAIL_PASSWORD)
             mail.select("inbox")
             status, response = mail.search(None, 'UNSEEN')
