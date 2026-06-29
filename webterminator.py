@@ -610,7 +610,7 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
             server = ProxiedSMTP(SMTP_SERVER, 2525, plain_sock, timeout=120)
             with server:
                 server.ehlo()
-                server.starttls()
+                server.starttls(server_hostname=SMTP_SERVER)
                 server.ehlo()
                 server.login(EMAIL_SENDER, EMAIL_PASSWORD)
                 server.send_message(msg)
