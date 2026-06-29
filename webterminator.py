@@ -1811,6 +1811,10 @@ async def api_delete_history(act_number: str):
 async def api_system_status():
     return {"bot_active": BOT_ACTIVE}
 
+@app.get("/api/debug/webapp-url")
+async def api_debug_webapp_url():
+    return {"webapp_url": WEBAPP_URL}
+
 @app.post("/api/system/toggle")
 async def api_system_toggle():
     global BOT_ACTIVE
