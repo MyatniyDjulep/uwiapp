@@ -830,6 +830,95 @@
   }
   .btn-main:active { animation: none; }
 
+  /* ── ИСТОРИЯ АКТОВ ── */
+  .history-item-card {
+    padding: 16px;
+    border-radius: var(--r);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    margin-bottom: 12px;
+  }
+  .history-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 8px;
+  }
+  .history-vessel-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .history-act-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0, 198, 255, 0.1);
+    border: 1px solid rgba(0, 198, 255, 0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .history-item-details {
+    font-size: 12px;
+    color: var(--subtext);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .history-item-details span {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .history-item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .history-item-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-history-edit {
+    background: rgba(0, 198, 255, 0.1);
+    color: var(--accent);
+    border-color: rgba(0, 198, 255, 0.25) !important;
+  }
+  .btn-history-edit:hover {
+    background: rgba(0, 198, 255, 0.18);
+    border-color: var(--accent) !important;
+  }
+  .btn-history-delete {
+    background: var(--danger-dim);
+    color: var(--danger);
+    border-color: rgba(255, 77, 109, 0.25) !important;
+  }
+  .btn-history-delete:hover {
+    background: rgba(255, 77, 109, 0.25);
+    border-color: var(--danger) !important;
+  }
+  .btn-history-toggle:hover {
+    background: rgba(0, 198, 255, 0.2) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 10px rgba(0, 198, 255, 0.25);
+  }
+  .btn-history-toggle:active {
+    transform: scale(0.95);
+  }
+
 </style>
 </head>
 <body>
@@ -842,6 +931,7 @@
       <div class="header-title">Конвейер «Терминатор»</div>
       <div class="header-sub" id="headerSub">v4.0 · ONLINE</div>
     </div>
+    <button class="btn-history-toggle" onclick="loadHistoryAndShow()" style="background: rgba(0, 198, 255, 0.1); border: 1px solid rgba(0, 198, 255, 0.3); color: var(--accent); padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-right: 8px; display: flex; align-items: center; gap: 4px;">📜 История</button>
     <div class="status-dot"></div>
   </div>
 
@@ -994,6 +1084,22 @@
   <div class="bottom-bar">
     <button class="btn-secondary" onclick="sendCancel()">✕ Отмена</button>
     <button class="btn-main" id="btnGenerate" onclick="submitToBot()">⚡ Генерировать</button>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН 4: ИСТОРИЯ АКТОВ ===== -->
+<div id="screen-history" class="screen">
+  <div class="header">
+    <button class="btn-back" onclick="switchScreen('screen-main')" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;">← Редактор</button>
+    <div class="header-info" style="margin-left: 10px;">
+      <div class="header-title">История актов</div>
+      <div class="header-sub">Архив сгенерированных судов</div>
+    </div>
+  </div>
+
+  <div class="section-label">Выполненные работы</div>
+  <div id="historyListContainer" style="display: flex; flex-direction: column; gap: 12px; padding: 0 12px 20px;">
+    <!-- Сюда будут рендериться карточки истории -->
   </div>
 </div>
 
@@ -1620,6 +1726,128 @@ function sendCancel() {
 document.getElementById("modalInput").addEventListener("keydown", e => {
   if (e.key === "Enter") saveModal();
 });
+
+let historyData = [];
+
+async function loadHistoryAndShow() {
+  tg.HapticFeedback.impactOccurred("medium");
+  const container = document.getElementById("historyListContainer");
+  container.innerHTML = `<div class="loader-sub" style="text-align:center; padding:20px; font-style:italic;">Загрузка истории...</div>`;
+  switchScreen("screen-history");
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/history`);
+    if (!res.ok) throw new Error("Status " + res.status);
+    historyData = await res.json();
+    
+    // Сортируем историю: сначала более новые (по timestamp)
+    historyData.sort((a, b) => {
+      try {
+        const parseDate = (s) => {
+          const parts = s.split(" ");
+          const d = parts[0].split(".");
+          const t = parts[1].split(":");
+          return new Date(d[2], d[1]-1, d[0], t[0], t[1]);
+        };
+        return parseDate(b.timestamp) - parseDate(a.timestamp);
+      } catch(e) {
+        return 0;
+      }
+    });
+
+    renderHistory();
+  } catch (err) {
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--danger);">Ошибка загрузки: ${err.message}</div>`;
+  }
+}
+
+function renderHistory() {
+  const container = document.getElementById("historyListContainer");
+  container.innerHTML = "";
+
+  if (historyData.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--subtext); font-style:italic;">Архив истории пуст</div>`;
+    return;
+  }
+
+  historyData.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "card glass history-item-card";
+    card.innerHTML = `
+      <div class="history-item-header">
+        <span class="history-vessel-title">🚢 ${item.vessel_name || 'Без названия'}</span>
+        <span class="history-act-badge">Акт ${item.act_number || '—'}</span>
+      </div>
+      <div class="history-item-details">
+        <div><span>Дата осмотра:</span> ${item.diving_date || '—'}</div>
+        <div><span>Создан:</span> ${item.timestamp || '—'}</div>
+      </div>
+      <div class="history-item-actions">
+        <button class="btn-history-edit" onclick="editHistoryEntry('${item.act_number}')">✏️ Редактировать</button>
+        <button class="btn-history-delete" onclick="deleteHistoryEntry('${item.act_number}')">🗑 Удалить</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function editHistoryEntry(actNumber) {
+  tg.HapticFeedback.impactOccurred("light");
+  const entry = historyData.find(item => item.act_number === actNumber);
+  if (!entry) return;
+
+  // Если у записи есть полный сохраненный снимок vessel_data, используем его,
+  // иначе собираем минимальные имеющиеся данные
+  const savedData = entry.vessel_data && Object.keys(entry.vessel_data).length > 0
+    ? entry.vessel_data
+    : {
+        vessel_name: entry.vessel_name,
+        act_number: entry.act_number,
+        diving_date: entry.diving_date,
+        ship_type: "BULK CARRIER", imo: "", flag: "", owner: "", master_name: "",
+        loa: "", breadth: "", draft_fore: "", draft_aft: "", current_date: entry.diving_date
+      };
+
+  state = { ...savedData };
+
+  // Если в сохраненных данных нет company_key, сбрасываем его
+  if (!state.company_key) state.company_key = "";
+
+  // Обновляем рекомендуемый стартовый номер документа
+  const recNum = (parseInt(state.last_doc_number) || 145) + 1;
+  document.getElementById("startNum").value = recNum;
+  document.getElementById("startNumHint").textContent = `Рекомендуется: ${recNum}`;
+  document.getElementById("headerSub").textContent = `${state.vessel_name || 'Без названия'} · Редактирование архива`;
+
+  // Обновляем весь UI
+  renderAll();
+  buildCompanyGrid();
+  buildEmailList();
+  
+  // Возвращаемся в редактор
+  switchScreen("screen-main");
+}
+
+async function deleteHistoryEntry(actNumber) {
+  tg.showConfirm(\`Вы действительно хотите безвозвратно удалить Акт \${actNumber} из истории?\`, async (ok) => {
+    if (!ok) return;
+    tg.HapticFeedback.notificationOccurred("warning");
+    
+    try {
+      const res = await fetch(\`\${BACKEND_URL}/api/history/delete?act_number=\${encodeURIComponent(actNumber)}\`, {
+        method: "POST"
+      });
+      if (!res.ok) throw new Error("Status " + res.status);
+      
+      // Удаляем локально из массива и перерисовываем
+      historyData = historyData.filter(item => item.act_number !== actNumber);
+      renderHistory();
+      tg.HapticFeedback.notificationOccurred("success");
+    } catch (err) {
+      tg.showAlert(\`Не удалось удалить запись: \${err.message}\`);
+    }
+  });
+}
 </script>
 </body>
 </html>

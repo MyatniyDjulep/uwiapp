@@ -293,7 +293,7 @@ def get_next_act_number_for_date(target_date_str):
     suffix = f"0{count}" if count < 10 else str(count)
     return f"{prefix}{suffix}"
 
-def log_inspection_event(doc_number, act_number, vessel_name, diving_date):
+def log_inspection_event(doc_number, act_number, vessel_name, diving_date, vessel_data=None):
     db = load_history_db()
     try:
         db["last_doc_number"] = int(doc_number)
@@ -303,10 +303,12 @@ def log_inspection_event(doc_number, act_number, vessel_name, diving_date):
         "act_number": str(act_number),
         "vessel_name": str(vessel_name),
         "diving_date": str(diving_date),
-        "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M")
+        "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "vessel_data": dict(vessel_data) if vessel_data else {}
     }
-    if not any(a.get("act_number") == str(act_number) for a in db["used_acts"]):
-        db["used_acts"].append(act_entry)
+    # Удаляем старую запись с таким же номером акта, чтобы перезаписать её актуальными данными
+    db["used_acts"] = [a for a in db.get("used_acts", []) if a.get("act_number") != str(act_number)]
+    db["used_acts"].append(act_entry)
     save_history_db(db)
 
 # =====================================================================
@@ -915,7 +917,7 @@ def generate_all_documents(chat_id, start_num, msg_to_edit, task_id=None):
             os.remove(f"{zip_base}.zip")
         except:
             pass
-        log_inspection_event(current_doc_num - 1, vessel_data.get('act_number', ''), vessel_name, vessel_data.get('diving_date', ''))
+        log_inspection_event(current_doc_num - 1, vessel_data.get('act_number', ''), vessel_name, vessel_data.get('diving_date', ''), vessel_data)
         default_selected = {str(i): path.lower().endswith('.pdf') for i, path in enumerate(generated_paths)}
         user_states[chat_id].update({
             "generated_files": list(generated_paths),
@@ -1788,6 +1790,18 @@ async def api_status(task_id: str):
     if not task:
         return {"status": "not_found", "progress": 0, "message": "Задача не найдена"}
     return task
+
+@app.get("/api/history")
+async def api_get_history():
+    db = load_history_db()
+    return db.get("used_acts", [])
+
+@app.post("/api/history/delete")
+async def api_delete_history(act_number: str):
+    db = load_history_db()
+    db["used_acts"] = [a for a in db.get("used_acts", []) if a.get("act_number") != act_number]
+    save_history_db(db)
+    return {"status": "success"}
 
 class ConfirmRequest(BaseModel):
     action: str
