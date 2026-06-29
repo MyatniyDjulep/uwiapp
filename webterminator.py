@@ -53,9 +53,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uuid
 
-import pystray
-from pystray import MenuItem as item
-
 # =====================================================================
 # ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ИЗ .env
 # =====================================================================
