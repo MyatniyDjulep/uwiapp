@@ -464,6 +464,48 @@ def run_isolated_conversion(docx_path, pdf_path):
 # =====================================================================
 # ОТПРАВКА ПОЧТЫ (С АВТОСОХРАНЕНИЕМ ЧЕРЕЗ BCC КОПИЮ)
 # =====================================================================
+import urllib.parse
+import ssl
+
+def connect_smtp_via_proxy(smtp_server, smtp_port, proxy_url, timeout=120):
+    parsed = urllib.parse.urlparse(proxy_url)
+    proxy_host = parsed.hostname
+    proxy_port = parsed.port or 8000
+    
+    # Создаем базовый сокет
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    sock.connect((proxy_host, proxy_port))
+    
+    # Формируем заголовки авторизации прокси
+    connect_req = f"CONNECT {smtp_server}:{smtp_port} HTTP/1.1\r\n"
+    connect_req += f"Host: {smtp_server}:{smtp_port}\r\n"
+    if parsed.username and parsed.password:
+        auth_str = f"{parsed.username}:{parsed.password}"
+        auth_b64 = base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
+        connect_req += f"Proxy-Authorization: Basic {auth_b64}\r\n"
+    connect_req += "\r\n"
+    
+    sock.sendall(connect_req.encode('utf-8'))
+    
+    # Читаем статус-ответ прокси
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        chunk = sock.recv(1024)
+        if not chunk:
+            break
+        resp += chunk
+        
+    status_line = resp.split(b"\r\n")[0].decode('utf-8', errors='ignore')
+    if "200" not in status_line:
+        sock.close()
+        raise Exception(f"Прокси отказал в CONNECT туннеле: {status_line}")
+        
+    # Оборачиваем сокет в SSL
+    context = ssl.create_default_context()
+    ssl_sock = context.wrap_socket(sock, server_hostname=smtp_server)
+    return ssl_sock
+
 def transliterate_filename(filename):
     cyrillic = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
     latin = [
@@ -512,7 +554,13 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
             with open(path, 'rb') as fp:
                 msg.add_attachment(fp.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
                 
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=120) as server:
+        if PROXY_URL:
+            ssl_sock = connect_smtp_via_proxy(SMTP_SERVER, SMTP_PORT, PROXY_URL, timeout=120)
+            server = smtplib.SMTP_SSL(sock=ssl_sock)
+        else:
+            server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=120)
+            
+        with server:
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
         return True
