@@ -542,9 +542,9 @@ def connect_plain_socket_via_proxy(target_host, target_port, proxy_url, timeout=
 class ProxiedSMTP(smtplib.SMTP):
     def __init__(self, host, port, sock, timeout=None):
         self._my_sock = sock
+        super().__init__(timeout=timeout)
         self._host = host
         self.host = host
-        super().__init__(timeout=timeout)
         self.connect(host, port)
         
     def _get_socket(self, host, port, timeout):
