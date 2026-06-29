@@ -4,8 +4,12 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
     libreoffice-writer \
-    fonts-dejavu \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/*
+
+# Копируем Windows шрифты (Times New Roman, Arial, Calibri) для LibreOffice
+COPY fonts/ /usr/share/fonts/truetype/msttcorefonts/
+RUN fc-cache -f -v
 
 # Рабочая директория
 WORKDIR /app

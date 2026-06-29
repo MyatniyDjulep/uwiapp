@@ -452,6 +452,17 @@ def run_isolated_conversion(docx_path, pdf_path):
 # =====================================================================
 # ОТПРАВКА ПОЧТЫ (С АВТОСОХРАНЕНИЕМ ЧЕРЕЗ BCC КОПИЮ)
 # =====================================================================
+def transliterate_filename(filename):
+    cyrillic = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
+    latin = [
+        'a', 'b', 'v', 'g', 'd', 'e', 'yo', 'zh', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f', 'h', 'ts', 'ch', 'sh', 'shch', '', 'y', '', 'e', 'yu', 'ya',
+        'A', 'B', 'V', 'G', 'D', 'E', 'Yo', 'Zh', 'Z', 'I', 'Y', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'F', 'H', 'Ts', 'Ch', 'Sh', 'Shch', '', 'Y', '', 'E', 'Yu', 'Ya'
+    ]
+    trans_dict = {ord(c): l for c, l in zip(cyrillic, latin)}
+    transliterated = filename.translate(trans_dict)
+    safe_chars = re.sub(r'[^\x00-\x7F]', '', transliterated)
+    return safe_chars.replace(' ', '_')
+
 def send_email_with_attachments(receiver_email, file_paths, vessel_name):
     try:
         msg = EmailMessage()
@@ -483,8 +494,8 @@ def send_email_with_attachments(receiver_email, file_paths, vessel_name):
                 ctype = 'application/octet-stream'
             maintype, subtype = ctype.split('/', 1)
             
-            # Имя файла передаем как обычную строку, stdlib закодирует по RFC 2231 автоматически без сбоев
-            safe_filename = os.path.basename(path)
+            # Имя файла передаем как ASCII-строку для совместимости с почтовыми клиентами
+            safe_filename = transliterate_filename(os.path.basename(path))
             
             with open(path, 'rb') as fp:
                 msg.add_attachment(fp.read(), maintype=maintype, subtype=subtype, filename=safe_filename)
