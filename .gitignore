@@ -1,0 +1,9 @@
+.env
+*.log
+err.txt
+FINAL_ARCHIVE/
+READY_DOCUMENTS/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
