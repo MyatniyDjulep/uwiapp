@@ -919,18 +919,125 @@
     transform: scale(0.95);
   }
 
+  /* ── ЭКРАН УСПЕХА И СКАЧИВАНИЯ ── */
+  .download-panel {
+    width: 100%;
+    max-width: 340px;
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 10;
+  }
+  .btn-download-zip {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: var(--r);
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(0, 198, 255, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+  .btn-download-zip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(0, 198, 255, 0.6);
+  }
+  .btn-download-zip:active {
+    transform: translateY(0);
+  }
+  .files-list-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r);
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .file-download-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 12.5px;
+    transition: all 0.2s;
+  }
+  .file-download-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .file-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .btn-file-dl {
+    background: transparent;
+    border: 1px solid rgba(0, 198, 255, 0.3);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-file-dl:hover {
+    background: rgba(0, 198, 255, 0.1);
+    border-color: var(--accent);
+  }
+  .btn-success-close {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--subtext);
+    padding: 12px;
+    border-radius: var(--r);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .btn-success-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+  }
+
 </style>
 </head>
 <body>
 
 <!-- ===== ЭКРАН 1: ДАННЫЕ СУДНА ===== -->
 <div id="screen-main" class="screen active">
+  <!-- Скрытый инпут для выбора PDF -->
+  <input type="file" accept=".pdf" id="pdf-file-input" style="display: none;" onchange="handlePDFUpload(event)">
+  
   <div class="header">
     <div class="header-badge">⚙️</div>
     <div class="header-info">
       <div class="header-title">Конвейер «Терминатор»</div>
       <div class="header-sub" id="headerSub">v4.0 · ONLINE</div>
     </div>
+    <button class="btn-history-toggle" onclick="triggerPDFUpload()" style="background: rgba(0, 229, 160, 0.1); border: 1px solid rgba(0, 229, 160, 0.3); color: var(--success); padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-right: 8px; display: flex; align-items: center; gap: 4px;">📤 Загрузить PDF</button>
     <button class="btn-history-toggle" onclick="loadHistoryAndShow()" style="background: rgba(0, 198, 255, 0.1); border: 1px solid rgba(0, 198, 255, 0.3); color: var(--accent); padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-right: 8px; display: flex; align-items: center; gap: 4px;">📜 История</button>
     <div class="status-dot"></div>
   </div>
@@ -1172,13 +1279,36 @@
 </div>
 
 <!-- ===== ЭКРАН 3: УСПЕХ ===== -->
-<div id="screen-success" class="fullscreen-overlay">
-  <div class="success-anim">
+<!-- ===== МОДАЛЬНЫЙ ЛОАДЕР ДЛЯ ЗАГРУЗКИ PDF ===== -->
+<div class="modal-overlay" id="uploadLoaderOverlay">
+  <div class="card glass" style="padding: 24px; text-align: center; max-width: 280px; width: calc(100% - 32px); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+    <div class="loader-sub" style="font-size: 24px; animation: pulse-dot 1.5s infinite;">🔍</div>
+    <div style="font-weight: 800; font-size: 15px; color: var(--text);">ИИ распознает PDF...</div>
+    <div style="font-size: 11.5px; color: var(--subtext); line-height: 1.4;">Это займет около 10-15 секунд. Пожалуйста, не закрывайте приложение.</div>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН 3: УСПЕХ И СКАЧИВАНИЯ ===== -->
+<div id="screen-success" class="fullscreen-overlay" style="flex-direction: column; padding: 20px; overflow-y: auto; justify-content: center; align-items: center;">
+  <div class="success-anim" style="margin-bottom: 12px; flex-shrink: 0;">
     <div class="success-ring"></div>
     <div class="success-icon-inner">🌊</div>
   </div>
-  <div class="success-title">Пакет запущен!</div>
-  <div class="success-sub">Бот пришлёт ZIP-архив в чат.<br>Письмо агенту поставлено в очередь.</div>
+  <div class="success-title" style="flex-shrink: 0;">Готово!</div>
+  <div class="success-sub" id="successScreenSub" style="margin-bottom: 16px; font-size: 12px; color: var(--subtext); text-align: center; flex-shrink: 0;">Документы успешно сгенерированы.</div>
+  
+  <div class="download-panel">
+    <button class="btn-download-zip" id="btnDownloadZip" onclick="downloadZip()">
+      <span>📥 Скачать все (ZIP-архив)</span>
+    </button>
+    
+    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--subtext); margin-top: 8px;">Отдельные файлы:</div>
+    <div class="files-list-card" id="filesListContainer">
+      <!-- Сюда будут динамически рендериться кнопки для каждого файла -->
+    </div>
+    
+    <button class="btn-success-close" onclick="tg.close()" style="margin-top: 12px;">✕ Закрыть приложение</button>
+  </div>
 </div>
 
 <!-- ===== MODAL: ПОЛЕ ===== -->
@@ -1603,7 +1733,7 @@ function handleStatusUpdate(data) {
   } 
   else if (status === "completed") {
     clearInterval(pollingInterval);
-    showSuccessScreen();
+    showSuccessScreen(data);
   } 
   else if (status === "failed") {
     clearInterval(pollingInterval);
@@ -1668,15 +1798,11 @@ function confirmAction(action) {
   })
   .then(res => res.json())
   .then(data => {
-    if (action === "send") {
-      document.getElementById("flyingPlane").style.display = "none";
-      if (data.status === "success" || data.status === "partial_success") {
-        showSuccessScreen();
-      } else {
-        showError(data.message || "Ошибка отправки почты.");
-      }
+    document.getElementById("flyingPlane").style.display = "none";
+    if (data.status === "completed" || data.status === "success" || data.status === "partial_success") {
+      showSuccessScreen(data);
     } else {
-      hideLoaderAndGoBack();
+      showError(data.message || "Ошибка при выполнении операции.");
     }
   })
   .catch(err => {
@@ -1685,13 +1811,42 @@ function confirmAction(action) {
   });
 }
 
-function showSuccessScreen() {
+function showSuccessScreen(taskData) {
   document.getElementById("screen-process").classList.remove("show");
   document.getElementById("screen-success").classList.add("show");
   tg.HapticFeedback.notificationOccurred("success");
-  setTimeout(() => {
-    tg.close();
-  }, 2500);
+
+  // Обновляем описание
+  const subText = document.getElementById("successScreenSub");
+  if (taskData && taskData.message) {
+    subText.textContent = taskData.message;
+  } else {
+    subText.textContent = "Документы успешно сгенерированы.";
+  }
+
+  // Рендерим список отдельных файлов
+  const container = document.getElementById("filesListContainer");
+  container.innerHTML = "";
+  
+  if (taskData && taskData.files && taskData.files.length > 0) {
+    taskData.files.forEach(fileName => {
+      const row = document.createElement("div");
+      row.className = "file-download-row";
+      
+      const fileExt = fileName.toLowerCase().endsWith(".pdf") ? "📄" : "📝";
+      
+      row.innerHTML = `
+        <div class="file-info">
+          <span style="font-size: 14px;">${fileExt}</span>
+          <div class="file-name" style="max-width: 180px;">${fileName}</div>
+        </div>
+        <button class="btn-file-dl" onclick="downloadFile('${fileName}')">Скачать</button>
+      `;
+      container.appendChild(row);
+    });
+  } else {
+    container.innerHTML = `<div style="text-align:center; padding:10px; font-style:italic; color:var(--subtext); font-size:11.5px;">Список файлов пуст</div>`;
+  }
 }
 
 function showError(msg) {
@@ -1951,6 +2106,70 @@ function restartBotSystem() {
       tg.showAlert(`Не удалось отправить команду перезапуска: ${err.message}`);
     }
   });
+}
+
+function triggerPDFUpload() {
+  document.getElementById("pdf-file-input").click();
+}
+
+async function handlePDFUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  event.target.value = ""; // Сбрасываем выбор
+  
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    tg.showAlert("Допускаются только PDF-файлы!");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  document.getElementById("uploadLoaderOverlay").classList.add("open");
+  tg.HapticFeedback.impactOccurred("medium");
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/upload-pdf`, {
+      method: "POST",
+      body: formData
+    });
+    
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || "Неизвестная ошибка сервера");
+    }
+    
+    const parsedData = await res.json();
+    state = { ...parsedData };
+    
+    const recNum = (parseInt(state.last_doc_number) || 145) + 1;
+    document.getElementById("startNum").value = recNum;
+    document.getElementById("startNumHint").textContent = `Рекомендуется: ${recNum}`;
+    document.getElementById("headerSub").textContent = `${state.vessel_name || 'Без названия'} · Проверка`;
+    
+    renderAll();
+    buildCompanyGrid();
+    buildEmailList();
+    
+    tg.HapticFeedback.notificationOccurred("success");
+    tg.showAlert("Спецификация судна успешно распознана ИИ-парсером!");
+  } catch (err) {
+    tg.HapticFeedback.notificationOccurred("error");
+    tg.showAlert(`Ошибка распознавания: ${err.message}`);
+  } finally {
+    document.getElementById("uploadLoaderOverlay").classList.remove("open");
+  }
+}
+
+function downloadZip() {
+  if (!currentTaskId) return;
+  window.open(`${BACKEND_URL}/api/download/zip/${currentTaskId}`, "_blank");
+}
+
+function downloadFile(fileName) {
+  if (!currentTaskId) return;
+  window.open(`${BACKEND_URL}/api/download/file/${currentTaskId}/${encodeURIComponent(fileName)}`, "_blank");
 }
 </script>
 </body>

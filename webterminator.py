@@ -48,7 +48,8 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from telebot import types, apihelper 
 from docx import Document
 from dotenv import load_dotenv
-from fastapi import FastAPI, BackgroundTasks, Request
+from fastapi import FastAPI, BackgroundTasks, Request, UploadFile, File
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uuid
@@ -909,16 +910,30 @@ def generate_all_documents(chat_id, start_num, msg_to_edit, task_id=None):
                 shutil.copy(p, archive_folder)
         
         if task_id:
-            update_task_status(task_id, "sending_zip", 75, "Создание архива и отправка в Telegram...")
+            update_task_status(task_id, "sending_zip", 75, "Создание архива...")
             
-        zip_base = os.path.join(BASE_DIR, "READY_DOCUMENTS", f"DOCUMENTS_{vessel_name}")
+        zip_filename = f"DOCUMENTS_{vessel_name}_{task_id}" if task_id else f"DOCUMENTS_{vessel_name}"
+        zip_base = os.path.join(BASE_DIR, "READY_DOCUMENTS", zip_filename)
         shutil.make_archive(zip_base, 'zip', vessel_output_folder)
-        with open(f"{zip_base}.zip", 'rb') as z_file:
-            bot.send_document(chat_id, z_file, caption=f"✅ Пакет документов для {vessel_name} готов!", timeout=120)
+        
+        # Send to telegram chat as backup/log
         try:
-            os.remove(f"{zip_base}.zip")
-        except:
-            pass
+            with open(f"{zip_base}.zip", 'rb') as z_file:
+                bot.send_document(chat_id, z_file, caption=f"✅ Пакет документов для {vessel_name} готов!", timeout=120)
+        except Exception as tg_err:
+            log_error("Не удалось отправить ZIP в Telegram (продолжаем работу):", tg_err)
+
+        if task_id:
+            # Save files list and ZIP path in task status so the Web App can query and download them
+            generation_tasks[task_id]["zip_path"] = f"{zip_base}.zip"
+            generation_tasks[task_id]["files"] = [os.path.basename(p) for p in generated_paths]
+            generation_tasks[task_id]["vessel_folder"] = vessel_output_folder
+            generation_tasks[task_id]["vessel_name"] = vessel_name
+        else:
+            try:
+                os.remove(f"{zip_base}.zip")
+            except:
+                pass
         log_inspection_event(current_doc_num - 1, vessel_data.get('act_number', ''), vessel_name, vessel_data.get('diving_date', ''), vessel_data)
         default_selected = {str(i): path.lower().endswith('.pdf') for i, path in enumerate(generated_paths)}
         user_states[chat_id].update({
@@ -1680,13 +1695,14 @@ generation_tasks = {}
 
 def update_task_status(task_id, status, progress, message, error=None):
     if task_id:
+        existing = generation_tasks.get(task_id, {})
         generation_tasks[task_id] = {
+            **existing,
             "status": status,
             "progress": progress,
             "message": message,
             "error": error,
-            "updated_at": time.time(),
-            "chat_id": generation_tasks.get(task_id, {}).get("chat_id")
+            "updated_at": time.time()
         }
 
 class GenerateRequest(BaseModel):
@@ -1816,6 +1832,103 @@ async def api_system_status():
 async def api_debug_webapp_url():
     return {"webapp_url": WEBAPP_URL}
 
+@app.post("/api/upload-pdf")
+async def api_upload_pdf(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".pdf"):
+        return JSONResponse(status_code=400, content={"error": "Только файлы PDF!"})
+    
+    temp_filename = f"upload_{uuid.uuid4()}_{file.filename}"
+    temp_path = os.path.join(BASE_DIR, temp_filename)
+    try:
+        content = await file.read()
+        with open(temp_path, "wb") as f:
+            f.write(content)
+            
+        data_ai = analyze_combined_email_data("", [temp_path])
+        
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+        if not data_ai:
+            return JSONResponse(status_code=422, content={"error": "Не удалось распознать данные судна ИИ-парсером."})
+            
+        div_date = data_ai.get("diving_date", datetime.now().strftime("%d.%m.%Y"))
+        if "DD.MM.YYYY" in div_date or not div_date:
+            div_date = datetime.now().strftime("%d.%m.%Y")
+            
+        try:
+            dt_obj = datetime.strptime(div_date.strip(), "%d.%m.%Y")
+            date_start_str = (dt_obj - timedelta(days=1)).strftime("%d.%m.%Y")
+            date_end_str = (dt_obj + timedelta(days=3)).strftime("%d.%m.%Y")
+        except:
+            date_start_str = datetime.now().strftime("%d.%m.%Y")
+            date_end_str = (datetime.now() + timedelta(days=4)).strftime("%d.%m.%Y")
+            
+        result = {
+            "vessel_name":  str(data_ai.get("vessel_name", "UNKNOWN")).upper(),
+            "ship_type":    str(data_ai.get("ship_type", "GENERAL CARGO")).upper(),
+            "imo":          str(data_ai.get("imo", "0000000")),
+            "loa":          str(data_ai.get("loa", "0.0")),
+            "breadth":      str(data_ai.get("breadth", "0.0")),
+            "flag":         str(data_ai.get("flag", "НЕ УКАЗАН")).upper(),
+            "owner":        str(data_ai.get("owner", "НЕ УКАЗАН")).upper(),
+            "draft_fore":   str(data_ai.get("draft_fore", "0.0")),
+            "draft_aft":    str(data_ai.get("draft_aft", "0.0")),
+            "master_name":  str(data_ai.get("master_name", "НЕ НАЙДЕН")).upper(),
+            "act_number":   get_next_act_number_for_date(div_date),
+            "diving_date":  div_date,
+            "date_start":   date_start_str,
+            "date_end":     date_end_str,
+            "current_date": datetime.now().strftime("%d.%m.%Y"),
+            "company_key":  "",
+            "last_doc_number": load_history_db().get("last_doc_number", 145)
+        }
+        return result
+    except Exception as e:
+        log_error("Ошибка при асинхронной загрузке PDF через API", e)
+        if os.path.exists(temp_path):
+            try: os.remove(temp_path)
+            except: pass
+        return JSONResponse(status_code=500, content={"error": f"Внутренняя ошибка сервера: {str(e)}"})
+
+@app.get("/api/download/zip/{task_id}")
+async def api_download_zip(task_id: str):
+    task = generation_tasks.get(task_id)
+    if not task:
+        return JSONResponse(status_code=404, content={"error": "Задача не найдена"})
+        
+    zip_path = task.get("zip_path")
+    vessel_name = task.get("vessel_name", "archive")
+    if not zip_path or not os.path.exists(zip_path):
+        return JSONResponse(status_code=404, content={"error": "Файл архива не найден или был удален"})
+        
+    return FileResponse(
+        path=zip_path,
+        media_type="application/zip",
+        filename=f"DOCUMENTS_{vessel_name}.zip"
+    )
+
+@app.get("/api/download/file/{task_id}/{file_name}")
+async def api_download_file(task_id: str, file_name: str):
+    task = generation_tasks.get(task_id)
+    if not task:
+        return JSONResponse(status_code=404, content={"error": "Задача не найдена"})
+        
+    vessel_folder = task.get("vessel_folder")
+    if not vessel_folder or not os.path.exists(vessel_folder):
+        return JSONResponse(status_code=404, content={"error": "Папка с документами не найдена"})
+        
+    clean_name = os.path.basename(file_name)
+    file_path = os.path.join(vessel_folder, clean_name)
+    
+    if not os.path.exists(file_path):
+        return JSONResponse(status_code=404, content={"error": "Запрошенный файл не найден"})
+        
+    return FileResponse(
+        path=file_path,
+        filename=clean_name
+    )
+
 @app.post("/api/system/toggle")
 async def api_system_toggle():
     global BOT_ACTIVE
@@ -1869,7 +1982,7 @@ async def api_confirm(task_id: str, req: ConfirmRequest):
         if success1 and success2:
             update_task_status(task_id, "completed", 100, "Все документы успешно отправлены!")
             bot.send_message(chat_id, f"✅ Оба пакета успешно отправлены на `{email_dest}`!", parse_mode="Markdown")
-            return {"status": "success"}
+            return generation_tasks[task_id]
         else:
             msg = "⚠️ Возникли проблемы при отправке:\n"
             msg += f"Пакет 1 (PDF): {'Отправлен' if success1 else 'Ошибка'}\n"
@@ -1879,16 +1992,11 @@ async def api_confirm(task_id: str, req: ConfirmRequest):
             return {"status": "partial_success", "message": msg}
             
     elif req.action == "cancel":
-        update_task_status(task_id, "cancelled", 100, "Отменено пользователем")
-        if vessel_data and (folder := vessel_data.get("vessel_folder")):
-            try:
-                shutil.rmtree(folder)
-            except:
-                pass
+        update_task_status(task_id, "completed", 100, "Архив готов, отправка почты пропущена.")
         if chat_id in user_states:
             del user_states[chat_id]
-        bot.send_message(chat_id, "🔒 Работа с судном отменена, данные сессии стерты.")
-        return {"status": "cancelled"}
+        bot.send_message(chat_id, "🔒 Отправка почты отменена. Готовый архив доступен для скачивания в приложении.")
+        return generation_tasks[task_id]
 
 # =====================================================================
 # ФОНОВЫЙ ПОТОК POLLING — ручной цикл, совместим с прокси
