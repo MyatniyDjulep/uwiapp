@@ -1017,30 +1017,60 @@ def analyze_combined_email_data(text_body, pdf_paths):
         return None
 
 # =====================================================================
+def log_imap_diag(msg):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}\n"
+    print(f"IMAP DIAG: {msg}", flush=True)
+    try:
+        log_path = os.path.join(BASE_DIR, "imap_diag.log")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(line)
+        with open(log_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if len(lines) > 200:
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.writelines(lines[-200:])
+    except:
+        pass
+
+# =====================================================================
 # ФОНОВЫЙ ПОТОК (ДЕМОН) СБОРА ПОЧТЫ — С BACKOFF И ПЕРЕСЫЛКОЙ
 # =====================================================================
 def mail_checker_daemon():
     backoff_delays = [30, 60, 120, 300]  
     fail_count = 0
+    
+    log_imap_diag("Инициализация фонового IMAP демона почты...")
 
     while True:
         if not BOT_ACTIVE:
             time.sleep(5)
             continue
         try:
+            log_imap_diag(f"Подключение к IMAP серверу {IMAP_SERVER}:{IMAP_PORT}...")
             if PROXY_URL:
                 ssl_sock = connect_ssl_via_proxy(IMAP_SERVER, IMAP_PORT, PROXY_URL, timeout=120)
                 mail = ProxiedIMAP4_SSL(IMAP_SERVER, IMAP_PORT, ssl_sock, timeout=120)
             else:
                 mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
+            
+            log_imap_diag(f"Авторизация в почте {EMAIL_SENDER}...")
             mail.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            
+            log_imap_diag("Выбор папки inbox...")
             mail.select("inbox")
+            
+            log_imap_diag("Поиск непрочитанных писем (UNSEEN)...")
             status, response = mail.search(None, 'UNSEEN')
             if status != 'OK':
+                log_imap_diag(f"Не удалось выполнить поиск: {status}")
                 mail.logout()
                 fail_count = 0
                 time.sleep(30)
                 continue
+
+            ids = response[0].split()
+            log_imap_diag(f"Успешное сканирование. Найдено непрочитанных писем: {len(ids)}")
 
             for e_id in response[0].split():
                 mail.store(e_id, '+FLAGS', '\\Seen')
@@ -1186,6 +1216,7 @@ def mail_checker_daemon():
             time.sleep(30)
 
         except Exception as e:
+            log_imap_diag(f"Критический сбой IMAP: {str(e)}")
             log_error("Критический сбой внутри циклического фонового IMAP демона почты", e)
             delay = backoff_delays[min(fail_count, len(backoff_delays) - 1)]
             fail_count += 1
@@ -1853,6 +1884,18 @@ async def api_debug_errors():
         with open(log_path, "r", encoding="utf-8") as f:
             content = f.read()
         return {"log": content[-20000:]}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/debug/imap")
+async def api_debug_imap():
+    log_path = os.path.join(BASE_DIR, "imap_diag.log")
+    if not os.path.exists(log_path):
+        return {"message": "No IMAP log file found"}
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"log": content}
     except Exception as e:
         return {"error": str(e)}
 
