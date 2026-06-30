@@ -1832,6 +1832,18 @@ async def api_system_status():
 async def api_debug_webapp_url():
     return {"webapp_url": WEBAPP_URL}
 
+@app.get("/api/debug/env")
+async def api_debug_env():
+    return {
+        "TELEGRAM_BOT_TOKEN_set": bool(TELEGRAM_BOT_TOKEN),
+        "MY_CHAT_ID": MY_CHAT_ID,
+        "SECOND_BOT_TOKEN_len": len(SECOND_BOT_TOKEN) if SECOND_BOT_TOKEN else 0,
+        "SECOND_BOT_TOKEN_mask": f"{SECOND_BOT_TOKEN[:10]}...{SECOND_BOT_TOKEN[-5:]}" if SECOND_BOT_TOKEN else "None",
+        "SECOND_BOT_CHAT_ID": SECOND_BOT_CHAT_ID,
+        "EMAIL_SENDER": EMAIL_SENDER,
+        "PROXY_URL_set": bool(PROXY_URL)
+    }
+
 @app.post("/api/upload-pdf")
 async def api_upload_pdf(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
