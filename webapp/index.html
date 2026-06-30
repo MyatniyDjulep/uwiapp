@@ -1873,12 +1873,12 @@ function editHistoryEntry(actNumber) {
 }
 
 async function deleteHistoryEntry(actNumber) {
-  tg.showConfirm(\`Вы действительно хотите безвозвратно удалить Акт \${actNumber} из истории?\`, async (ok) => {
+  tg.showConfirm(`Вы действительно хотите безвозвратно удалить Акт ${actNumber} из истории?`, async (ok) => {
     if (!ok) return;
     tg.HapticFeedback.notificationOccurred("warning");
     
     try {
-      const res = await fetch(\`\${BACKEND_URL}/api/history/delete?act_number=\${encodeURIComponent(actNumber)}\`, {
+      const res = await fetch(`${BACKEND_URL}/api/history/delete?act_number=${encodeURIComponent(actNumber)}`, {
         method: "POST"
       });
       if (!res.ok) throw new Error("Status " + res.status);
@@ -1888,7 +1888,7 @@ async function deleteHistoryEntry(actNumber) {
       renderHistory();
       tg.HapticFeedback.notificationOccurred("success");
     } catch (err) {
-      tg.showAlert(\`Не удалось удалить запись: \${err.message}\`);
+      tg.showAlert(`Не удалось удалить запись: ${err.message}`);
     }
   });
 }
