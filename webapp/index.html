@@ -1787,28 +1787,36 @@ function showConfirmCard(data) {
   document.getElementById("loaderBar").style.width = "85%";
   document.getElementById("confirmCard").classList.add("show");
   
-  // Рендерим PDF файлы для предварительного просмотра
+  // Рендерим PDF и первые 3 DOCX файлы для предварительного просмотра
   const container = document.getElementById("confirmFilesList");
   container.innerHTML = "";
   
-  const pdfFiles = (data && data.files) ? data.files.filter(f => f.toLowerCase().endsWith(".pdf")) : [];
+  const allFiles = (data && data.files) ? data.files : [];
+  const pdfFiles = allFiles.filter(f => f.toLowerCase().endsWith(".pdf"));
+  const docxFiles = allFiles.filter(f => f.toLowerCase().endsWith(".docx")).slice(0, 3);
+  const previewFiles = [...pdfFiles, ...docxFiles];
   
-  if (pdfFiles.length > 0) {
-    pdfFiles.forEach(fileName => {
+  if (previewFiles.length > 0) {
+    previewFiles.forEach(fileName => {
       const row = document.createElement("div");
       row.className = "file-download-row";
       row.style.padding = "6px 8px";
+      
+      const isPdf = fileName.toLowerCase().endsWith(".pdf");
+      const icon = isPdf ? "📄" : "📝";
+      const btnText = isPdf ? "Открыть" : "Скачать";
+      
       row.innerHTML = `
         <div class="file-info" style="gap: 6px;">
-          <span style="font-size: 14px;">📄</span>
+          <span style="font-size: 14px;">${icon}</span>
           <div class="file-name" style="font-size: 11.5px; max-width: 160px;">${fileName}</div>
         </div>
-        <button class="btn-file-dl" style="padding: 2px 6px; font-size: 10px;" onclick="downloadFile('${fileName}')">Открыть</button>
+        <button class="btn-file-dl" style="padding: 2px 6px; font-size: 10px;" onclick="downloadFile('${fileName}')">${btnText}</button>
       `;
       container.appendChild(row);
     });
   } else {
-    container.innerHTML = `<div style="text-align:center; padding:10px; font-style:italic; color:var(--subtext); font-size:11px;">Нет доступных PDF</div>`;
+    container.innerHTML = `<div style="text-align:center; padding:10px; font-style:italic; color:var(--subtext); font-size:11px;">Нет доступных файлов</div>`;
   }
   
   document.getElementById("btnConfirmSend").onclick = () => confirmAction("send");
