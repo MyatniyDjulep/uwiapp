@@ -718,7 +718,8 @@ def build_webapp_url(vessel_data):
         "last_doc_number": load_history_db().get("last_doc_number", 145),
     }
     encoded = base64.b64encode(json.dumps(payload, ensure_ascii=False).encode()).decode()
-    return f"{WEBAPP_URL}?data={encoded}"
+    # Adding a cache-buster version parameter to force Telegram to load the latest HTML
+    return f"{WEBAPP_URL}?v=402&data={encoded}"
 
 def send_webapp_button(chat_id, vessel_data, intro_text=None):
     """Отправляет кнопку Web App как ReplyKeyboardMarkup (для корректной работы sendData) и inline-кнопку текстового режима как фолбэк."""
