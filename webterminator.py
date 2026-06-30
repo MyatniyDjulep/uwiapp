@@ -1844,6 +1844,18 @@ async def api_debug_env():
         "PROXY_URL_set": bool(PROXY_URL)
     }
 
+@app.get("/api/debug/errors")
+async def api_debug_errors():
+    log_path = os.path.join(BASE_DIR, "terminator_errors.log")
+    if not os.path.exists(log_path):
+        return {"message": "No errors log file found"}
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"log": content[-20000:]}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/api/upload-pdf")
 async def api_upload_pdf(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
