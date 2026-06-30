@@ -1991,9 +1991,19 @@ async def api_download_file(task_id: str, file_name: str):
     if not os.path.exists(file_path):
         return JSONResponse(status_code=404, content={"error": "Запрошенный файл не найден"})
         
+    media_type = "application/octet-stream"
+    if clean_name.lower().endswith(".pdf"):
+        media_type = "application/pdf"
+    elif clean_name.lower().endswith(".docx"):
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        
+    headers = {
+        "Content-Disposition": f"inline; filename=\"{clean_name}\""
+    }
     return FileResponse(
         path=file_path,
-        filename=clean_name
+        media_type=media_type,
+        headers=headers
     )
 
 @app.post("/api/system/toggle")
