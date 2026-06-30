@@ -2214,7 +2214,7 @@ function downloadFile(fileName) {
   const fileUrl = `${BACKEND_URL}/api/download/file/${currentTaskId}/${encodeURIComponent(fileName)}`;
   
   if (fileName.toLowerCase().endsWith(".docx")) {
-    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
+    const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
     window.open(viewerUrl, "_blank");
   } else {
     window.open(fileUrl, "_blank");
