@@ -1211,7 +1211,26 @@
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
+window.onerror = function(message, source, lineno, colno, error) {
+  alert("JS ERROR: " + message + "\nLine: " + lineno + "\nSource: " + source);
+  return false;
+};
+
+const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : {
+  expand: () => {},
+  enableClosingConfirmation: () => {},
+  HapticFeedback: {
+    impactOccurred: () => {},
+    selectionChanged: () => {},
+    notificationOccurred: () => {}
+  },
+  showAlert: (msg) => alert(msg),
+  showConfirm: (msg, cb) => cb(confirm(msg)),
+  close: () => window.close(),
+  initData: "",
+  initDataUnsafe: {}
+};
+
 tg.expand();
 tg.enableClosingConfirmation();
 
@@ -1254,14 +1273,20 @@ window.onload = () => {
   let vesselData = null;
   try {
     const params = new URLSearchParams(raw);
-    const startParam = params.get("start_param") || new URLSearchParams(location.search).get("data");
-    console.log("DEBUG initData:", raw.substring(0, 200));
-    console.log("DEBUG location.search:", location.search.substring(0, 200));
+    let startParam = params.get("start_param") || new URLSearchParams(location.search).get("data");
+    console.log("DEBUG raw location.search:", location.search);
     console.log("DEBUG startParam:", startParam ? startParam.substring(0, 100) : "NULL");
-    if (startParam) vesselData = JSON.parse(decodeURIComponent(atob(startParam)));
-    console.log("DEBUG vesselData:", vesselData ? "PARSED OK" : "NULL");
+    if (startParam) {
+      // Replace spaces back to pluses (since URLSearchParams decodes '+' as ' ')
+      const cleanParam = startParam.replace(/ /g, "+");
+      const decodedBinary = atob(cleanParam);
+      const decodedText = decodeURIComponent(escape(decodedBinary));
+      vesselData = JSON.parse(decodedText);
+      console.log("DEBUG parsed vesselData:", vesselData);
+    }
   } catch(e) {
     console.error("DEBUG parse error:", e);
+    alert("Parsing error: " + e.message + "\nStack: " + e.stack);
   }
 
   if (!vesselData) {
