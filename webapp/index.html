@@ -1804,7 +1804,7 @@ function showConfirmCard(data) {
       
       const isPdf = fileName.toLowerCase().endsWith(".pdf");
       const icon = isPdf ? "📄" : "📝";
-      const btnText = isPdf ? "Открыть" : "Скачать";
+      const btnText = "Открыть";
       
       row.innerHTML = `
         <div class="file-info" style="gap: 6px;">
@@ -1882,7 +1882,7 @@ function showSuccessScreen(taskData) {
           <span style="font-size: 14px;">${fileExt}</span>
           <div class="file-name" style="max-width: 180px;">${fileName}</div>
         </div>
-        <button class="btn-file-dl" onclick="downloadFile('${fileName}')">Скачать</button>
+        <button class="btn-file-dl" onclick="downloadFile('${fileName}')">Открыть</button>
       `;
       container.appendChild(row);
     });
@@ -2211,7 +2211,14 @@ function downloadZip() {
 
 function downloadFile(fileName) {
   if (!currentTaskId) return;
-  window.open(`${BACKEND_URL}/api/download/file/${currentTaskId}/${encodeURIComponent(fileName)}`, "_blank");
+  const fileUrl = `${BACKEND_URL}/api/download/file/${currentTaskId}/${encodeURIComponent(fileName)}`;
+  
+  if (fileName.toLowerCase().endsWith(".docx")) {
+    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
+    window.open(viewerUrl, "_blank");
+  } else {
+    window.open(fileUrl, "_blank");
+  }
 }
 </script>
 </body>
