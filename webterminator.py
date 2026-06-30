@@ -1997,8 +1997,11 @@ async def api_download_file(task_id: str, file_name: str):
     elif clean_name.lower().endswith(".docx"):
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         
+    import urllib.parse
+    safe_filename = urllib.parse.quote(clean_name)
+    
     headers = {
-        "Content-Disposition": f"inline; filename=\"{clean_name}\""
+        "Content-Disposition": f"inline; filename=\"{safe_filename}\"; filename*=utf-8''{safe_filename}"
     }
     return FileResponse(
         path=file_path,
