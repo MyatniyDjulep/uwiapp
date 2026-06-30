@@ -1,0 +1,1625 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Конвейер Терминатор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --accent:        #00c6ff;
+    --accent-2:      #0072ff;
+    --accent-glow:   rgba(0, 198, 255, 0.2);
+    --accent-dim:    rgba(0, 198, 255, 0.1);
+    --glass-bg:      rgba(8, 16, 32, 0.55);
+    --glass-bg-2:    rgba(6, 12, 24, 0.7);
+    --glass-border:  rgba(255, 255, 255, 0.1);
+    --glass-border-accent: rgba(0, 198, 255, 0.4);
+    --text:          #f0f4ff;
+    --subtext:       rgba(180, 200, 230, 0.65);
+    --danger:        #ff4d6d;
+    --danger-dim:    rgba(255, 77, 109, 0.15);
+    --success:       #00e5a0;
+    --font:          'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono:          'JetBrains Mono', 'Fira Code', monospace;
+    --r:             16px;
+    --r-sm:          10px;
+    --r-xs:          7px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: #050d1a;
+    position: relative;
+  }
+
+  /* ── АНИМИРОВАННЫЙ ФОН ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(0, 114, 255, 0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(0, 198, 255, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0, 50, 120, 0.15) 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 80px,
+        rgba(0, 198, 255, 0.025) 80px,
+        rgba(0, 198, 255, 0.025) 81px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 80px,
+        rgba(0, 198, 255, 0.015) 80px,
+        rgba(0, 198, 255, 0.015) 81px
+      );
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ── ЭКРАНЫ ── */
+  .screen {
+    display: none;
+    padding-bottom: 96px;
+    position: relative;
+    z-index: 1;
+  }
+  .screen.active {
+    display: block;
+    animation: screenIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes screenIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── GLASSMORPHISM ── */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--glass-border);
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: rgba(5, 13, 26, 0.6);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 14px 16px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+  }
+
+  .header-badge {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    background: linear-gradient(135deg, rgba(0,114,255,0.3), rgba(0,198,255,0.15));
+    border: 1px solid var(--glass-border-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(0, 198, 255, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
+  .header-badge::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%);
+    animation: sheen 3s ease-in-out infinite;
+  }
+  @keyframes sheen {
+    0%, 100% { transform: translateX(-60%) rotate(0deg); }
+    50% { transform: translateX(60%) rotate(0deg); }
+  }
+
+  .header-info { flex: 1; min-width: 0; }
+  .header-title { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; color: var(--text); }
+  .header-sub {
+    font-size: 10.5px; color: var(--accent); margin-top: 2px;
+    font-family: var(--mono); font-weight: 600; letter-spacing: 0.3px;
+    opacity: 0.85;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+    flex-shrink: 0;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  /* ── SECTION LABEL ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 22px 16px 8px;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .section-label::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 12px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent-2));
+    border-radius: 2px;
+    box-shadow: 0 0 6px var(--accent-glow);
+  }
+
+  /* ── CARD & FIELDS ── */
+  .card {
+    border-radius: var(--r);
+    margin: 0 12px 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255,255,255,0.04) inset;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    padding: 13px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.055);
+    gap: 13px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    position: relative;
+  }
+  .field:last-child { border-bottom: none; }
+  .field:hover { background: rgba(0, 198, 255, 0.04); }
+  .field:active { background: rgba(0, 198, 255, 0.09); }
+
+  .field-icon-wrap {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: rgba(0, 198, 255, 0.08);
+    border: 1px solid rgba(0, 198, 255, 0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .field-body { flex: 1; min-width: 0; }
+  .field-label {
+    font-size: 9.5px; color: var(--subtext);
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; margin-bottom: 4px;
+  }
+  .field-value {
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--text);
+    transition: color 0.2s;
+  }
+  .field-value.mono { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .field-value.dim  { color: var(--subtext); font-weight: 400; font-style: italic; }
+  .field-value.ok   { color: var(--accent); }
+
+  .field-arrow {
+    color: rgba(255,255,255,0.2);
+    font-size: 16px;
+    font-weight: 300;
+    transition: color 0.15s, transform 0.15s;
+  }
+  .field:hover .field-arrow { color: var(--accent); transform: translateX(2px); }
+
+  /* ── COMPUTED CHIPS ── */
+  .computed-row {
+    display: flex; gap: 8px;
+    padding: 12px 14px 14px;
+    border-top: 1px solid rgba(255,255,255,0.055);
+  }
+  .computed-chip {
+    flex: 1;
+    background: linear-gradient(135deg, rgba(0,114,255,0.1), rgba(0,198,255,0.05));
+    border: 1px solid rgba(0, 198, 255, 0.2);
+    border-radius: var(--r-sm);
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .computed-chip-label {
+    font-size: 8.5px; color: var(--subtext);
+    letter-spacing: 1px; text-transform: uppercase; font-weight: 700;
+  }
+  .computed-chip-val {
+    font-size: 18px; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-family: var(--mono);
+    margin-top: 3px;
+  }
+  .computed-chip-unit { font-size: 8px; color: var(--subtext); margin-top: 1px; }
+
+  /* ── COMPANY GRID ── */
+  .company-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 14px 14px; }
+  .company-pill {
+    border-radius: var(--r-sm);
+    padding: 14px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--glass-border);
+    position: relative;
+    overflow: hidden;
+  }
+  .company-pill::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,198,255,0.08), rgba(0,114,255,0.04));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .company-pill:active { transform: scale(0.95); }
+  .company-pill.selected {
+    border-color: var(--accent);
+    background: rgba(0, 198, 255, 0.08);
+    box-shadow: 0 0 16px rgba(0, 198, 255, 0.15), inset 0 0 0 1px rgba(0,198,255,0.1);
+  }
+  .company-pill.selected::before { opacity: 1; }
+  .company-pill-icon { font-size: 22px; margin-bottom: 7px; }
+  .company-pill-name {
+    font-size: 10px; font-weight: 700;
+    color: var(--subtext); line-height: 1.35;
+    transition: color 0.2s;
+  }
+  .company-pill.selected .company-pill-name { color: var(--accent); }
+
+  /* ── EMAIL LIST ── */
+  .email-list { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .email-opt {
+    padding: 13px 14px;
+    border-radius: var(--r-sm);
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--glass-border);
+    font-size: 13.5px; font-weight: 500;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .email-opt:hover { border-color: rgba(0, 198, 255, 0.25); background: rgba(0, 198, 255, 0.04); }
+  .email-opt.selected {
+    border-color: var(--accent);
+    background: rgba(0, 198, 255, 0.08);
+    box-shadow: 0 0 12px rgba(0, 198, 255, 0.1);
+  }
+
+  .email-opt .indicator {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25);
+    flex-shrink: 0; transition: 0.2s;
+    position: relative;
+  }
+  .email-opt.selected .indicator {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 8px rgba(0, 198, 255, 0.5);
+  }
+  .email-opt.selected .indicator::after {
+    content: '✓';
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; color: #050d1a;
+  }
+
+  .email-opt.skip { border-color: rgba(255, 77, 109, 0.25); }
+  .email-opt.skip:hover { border-color: rgba(255, 77, 109, 0.4); background: var(--danger-dim); }
+  .email-opt.skip.selected {
+    border-color: var(--danger);
+    background: var(--danger-dim);
+    box-shadow: 0 0 12px rgba(255, 77, 109, 0.12);
+  }
+  .email-opt.skip.selected .indicator {
+    border-color: var(--danger);
+    background: var(--danger);
+    box-shadow: 0 0 8px rgba(255, 77, 109, 0.5);
+  }
+
+  .email-text { flex: 1; }
+  .email-addr { font-weight: 600; color: var(--text); }
+  .email-hint { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+
+  /* ── START NUMBER ── */
+  .startnum-block { padding: 14px; display: flex; gap: 10px; align-items: center; }
+  .startnum-btn {
+    width: 44px; height: 44px;
+    background: rgba(0,198,255,0.08);
+    border: 1px solid rgba(0,198,255,0.2);
+    border-radius: var(--r-sm);
+    color: var(--accent);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    font-weight: 300;
+  }
+  .startnum-btn:active { background: rgba(0,198,255,0.18); transform: scale(0.95); }
+  .startnum-input {
+    flex: 1;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(0,198,255,0.25);
+    border-radius: var(--r-sm);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 22px; font-weight: 700;
+    padding: 10px;
+    outline: none; text-align: center;
+    -webkit-appearance: none; appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .startnum-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 198, 255, 0.12);
+  }
+  .startnum-hint { font-size: 11px; color: var(--subtext); padding: 0 14px 14px; }
+
+  /* ── BOTTOM BAR ── */
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(5, 13, 26, 0.7);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border-top: 1px solid var(--glass-border);
+    padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+    display: flex; gap: 10px; z-index: 150;
+  }
+
+  .btn-main {
+    flex: 1;
+    background: linear-gradient(135deg, #0072ff, #00c6ff);
+    border: none;
+    border-radius: 14px;
+    font-size: 15px; font-weight: 700;
+    color: #fff;
+    padding: 15px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow:
+      0 4px 20px rgba(0, 198, 255, 0.35),
+      0 1px 0 rgba(255,255,255,0.2) inset;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-main::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.12), transparent);
+    pointer-events: none;
+  }
+  .btn-main:active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 10px rgba(0, 198, 255, 0.25);
+  }
+  .btn-main:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    font-size: 14px; font-weight: 600;
+    color: var(--subtext);
+    padding: 15px 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-secondary:active { background: rgba(255,255,255,0.1); color: var(--text); transform: scale(0.97); }
+
+  /* ── FULLSCREEN OVERLAYS ── */
+  .fullscreen-overlay {
+    position: fixed; inset: 0;
+    background: rgba(5, 13, 26, 0.9);
+    backdrop-filter: blur(24px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 999; opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    text-align: center; padding: 24px;
+  }
+  .fullscreen-overlay.show { opacity: 1; pointer-events: all; }
+
+  /* Loader */
+  .loader-rings {
+    position: relative; width: 72px; height: 72px;
+    margin-bottom: 28px;
+  }
+  .loader-rings::before,
+  .loader-rings::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 2.5px solid transparent;
+  }
+  .loader-rings::before {
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 16px rgba(0,198,255,0.3);
+  }
+  .loader-rings::after {
+    inset: 10px;
+    border-bottom-color: var(--accent-2);
+    border-left-color: var(--accent-2);
+    animation: spin 0.7s linear infinite reverse;
+    opacity: 0.7;
+  }
+  .loader-core {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loader-text {
+    font-size: 19px; font-weight: 700; color: var(--text);
+    margin-bottom: 8px; letter-spacing: -0.3px;
+  }
+  .loader-sub {
+    font-size: 12.5px; color: var(--accent);
+    font-family: var(--mono); font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .loader-bar-wrap {
+    width: 200px; height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px; margin-top: 20px; overflow: hidden;
+  }
+  .loader-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.8s ease;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* ── ИНТЕРАКТИВНЫЙ ТРЕКЕР ШАГОВ ── */
+  .process-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 30px;
+    width: 280px;
+    text-align: left;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--subtext);
+    transition: all 0.3s ease;
+    opacity: 0.35;
+  }
+  .step-item.active {
+    opacity: 1;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .step-item.completed {
+    opacity: 0.9;
+    color: var(--success);
+  }
+  .step-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    font-size: 9px;
+    transition: all 0.3s ease;
+  }
+  .step-item.active .step-icon {
+    animation: pulseGlow 1.5s infinite;
+  }
+  @keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 0 rgba(0, 198, 255, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 198, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 198, 255, 0); }
+  }
+
+  /* ── КАРТОЧКА ПОДТВЕРЖДЕНИЯ ВНУТРИ ЛОАДЕРА ── */
+  .confirm-card {
+    display: none;
+    margin-top: 24px;
+    padding: 20px;
+    border-radius: var(--r);
+    background: rgba(10, 24, 46, 0.75);
+    border: 1px solid var(--glass-border-accent);
+    width: 300px;
+    max-width: 90%;
+    animation: cardIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 8px 32px rgba(0, 198, 255, 0.2);
+    text-align: center;
+  }
+  .confirm-card.show {
+    display: block;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: scale(0.9) translateY(12px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .confirm-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .confirm-card-sub {
+    font-size: 12px;
+    color: var(--subtext);
+    line-height: 1.45;
+    margin-bottom: 16px;
+  }
+  .confirm-card-btns {
+    display: flex;
+    gap: 10px;
+  }
+  .confirm-card-btns button {
+    flex: 1;
+    border-radius: var(--r-sm);
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-confirm-send {
+    background: linear-gradient(135deg, var(--success), #00b377);
+    color: #030a16;
+    box-shadow: 0 4px 12px rgba(0, 229, 160, 0.2);
+  }
+  .btn-confirm-send:active {
+    transform: scale(0.97);
+  }
+  .btn-confirm-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border) !important;
+    color: var(--text);
+  }
+  .btn-confirm-cancel:active {
+    background: var(--danger-dim);
+    border-color: var(--danger) !important;
+    color: var(--danger);
+    transform: scale(0.97);
+  }
+  
+  /* Анимация бумажного самолетика */
+  .flying-airplane {
+    display: none;
+    font-size: 32px;
+    animation: flyPlane 1.5s infinite linear;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: center;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  @keyframes flyPlane {
+    0% { transform: translate(-100px, 50px) rotate(-15deg) scale(0.4); opacity: 0; }
+    30% { transform: translate(-30px, 15px) rotate(-15deg) scale(1.1); opacity: 1; }
+    70% { transform: translate(30px, -20px) rotate(-15deg) scale(1.1); opacity: 1; }
+    100% { transform: translate(100px, -60px) rotate(-15deg) scale(0.4); opacity: 0; }
+  }
+
+  /* Блок ошибки */
+  .error-block {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    max-width: 90%;
+    width: 300px;
+    margin-top: 20px;
+    animation: cardIn 0.3s ease;
+  }
+  .error-block.show {
+    display: flex;
+  }
+  .error-msg {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--danger);
+    background: var(--danger-dim);
+    border: 1px solid var(--danger);
+    padding: 10px;
+    border-radius: var(--r-sm);
+    text-align: left;
+    width: 100%;
+    word-break: break-all;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .btn-err-back {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent) !important;
+    color: var(--accent);
+    padding: 10px 20px;
+    border-radius: var(--r-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-err-back:active {
+    transform: scale(0.97);
+  }
+
+  /* Success */
+  .success-anim {
+    position: relative; width: 80px; height: 80px;
+    margin-bottom: 20px;
+  }
+  .success-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--success);
+    animation: successRing 0.5s ease forwards;
+    box-shadow: 0 0 20px rgba(0, 229, 160, 0.3);
+  }
+  @keyframes successRing {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .success-icon-inner {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    animation: successPop 0.5s 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  }
+  @keyframes successPop {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+  .success-title {
+    font-size: 22px; font-weight: 800;
+    background: linear-gradient(135deg, var(--success), #00c6ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px; letter-spacing: -0.4px;
+  }
+  .success-sub {
+    font-size: 14px; color: var(--subtext);
+    line-height: 1.6; max-width: 280px;
+  }
+
+  /* ── MODALS ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: rgba(8, 16, 35, 0.85);
+    backdrop-filter: blur(30px) saturate(1.5);
+    -webkit-backdrop-filter: blur(30px) saturate(1.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    width: 100%; padding: 20px 16px 32px;
+    transform: translateY(100%);
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-handle {
+    width: 38px; height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    margin: 0 auto 18px;
+  }
+  .modal-title { font-size: 17px; font-weight: 800; margin-bottom: 3px; letter-spacing: -0.3px; }
+  .modal-subtitle { font-size: 12px; color: var(--subtext); margin-bottom: 18px; }
+
+  .modal-input {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    outline: none;
+    -webkit-appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .modal-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 198, 255, 0.12);
+  }
+  .modal-row { display: flex; gap: 10px; }
+  .modal-btn {
+    flex: 1; padding: 14px;
+    border-radius: 12px;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .modal-btn:active { transform: scale(0.97); }
+  .modal-btn.cancel {
+    border: 1px solid var(--glass-border);
+    color: var(--subtext);
+    background: rgba(255,255,255,0.04);
+  }
+  .modal-btn.cancel:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .modal-btn.confirm {
+    background: linear-gradient(135deg, #0072ff, #00c6ff);
+    border: none;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 198, 255, 0.3);
+  }
+  .modal-btn.confirm:hover { box-shadow: 0 6px 20px rgba(0, 198, 255, 0.4); }
+
+  /* ── SUMMARY CARD ── */
+  .summary-card {
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .summary-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .summary-label { font-size: 11px; color: var(--subtext); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .summary-val { font-size: 14px; font-weight: 700; color: var(--text); max-width: 60%; text-align: right; }
+  .summary-val.accent { color: var(--success); }
+  .summary-divider { height: 1px; background: rgba(255,255,255,0.06); }
+
+  /* ── ПУЛЬС У КНОПКИ ── */
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0, 198, 255, 0.35); }
+    50% { box-shadow: 0 4px 32px rgba(0, 198, 255, 0.6); }
+  }
+  .btn-main:not(:disabled) {
+    animation: glow-pulse 2.5s ease-in-out infinite;
+  }
+  .btn-main:active { animation: none; }
+
+</style>
+</head>
+<body>
+
+<!-- ===== ЭКРАН 1: ДАННЫЕ СУДНА ===== -->
+<div id="screen-main" class="screen active">
+  <div class="header">
+    <div class="header-badge">⚙️</div>
+    <div class="header-info">
+      <div class="header-title">Конвейер «Терминатор»</div>
+      <div class="header-sub" id="headerSub">v4.0 · ONLINE</div>
+    </div>
+    <div class="status-dot"></div>
+  </div>
+
+  <div class="section-label">Судно</div>
+  <div class="card glass">
+    <div class="field" onclick="editField('vessel_name')">
+      <div class="field-icon-wrap">🚢</div>
+      <div class="field-body">
+        <div class="field-label">Название судна</div>
+        <div class="field-value" id="fld-vessel_name">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('ship_type')">
+      <div class="field-icon-wrap">⛴</div>
+      <div class="field-body">
+        <div class="field-label">Тип судна</div>
+        <div class="field-value" id="fld-ship_type">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('imo')">
+      <div class="field-icon-wrap">🔢</div>
+      <div class="field-body">
+        <div class="field-label">IMO</div>
+        <div class="field-value mono" id="fld-imo">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('flag')">
+      <div class="field-icon-wrap">🏴</div>
+      <div class="field-body">
+        <div class="field-label">Флаг</div>
+        <div class="field-value" id="fld-flag">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('owner')">
+      <div class="field-icon-wrap">🏢</div>
+      <div class="field-body">
+        <div class="field-label">Судовладелец</div>
+        <div class="field-value" id="fld-owner">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('master_name')">
+      <div class="field-icon-wrap">👤</div>
+      <div class="field-body">
+        <div class="field-label">Капитан</div>
+        <div class="field-value" id="fld-master_name">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+  </div>
+
+  <div class="section-label">Размерения</div>
+  <div class="card glass">
+    <div class="field" onclick="editField('loa')">
+      <div class="field-icon-wrap">📐</div>
+      <div class="field-body">
+        <div class="field-label">Длина (LOA)</div>
+        <div class="field-value mono" id="fld-loa">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('breadth')">
+      <div class="field-icon-wrap">↔️</div>
+      <div class="field-body">
+        <div class="field-label">Ширина (Breadth)</div>
+        <div class="field-value mono" id="fld-breadth">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editDraft()">
+      <div class="field-icon-wrap">🌊</div>
+      <div class="field-body">
+        <div class="field-label">Осадка FWD / AFT</div>
+        <div class="field-value mono" id="fld-draft">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="computed-row">
+      <div class="computed-chip">
+        <div class="computed-chip-label">WSA</div>
+        <div class="computed-chip-val" id="chip-wsa">—</div>
+        <div class="computed-chip-unit">м²</div>
+      </div>
+      <div class="computed-chip">
+        <div class="computed-chip-label">Площадь винта</div>
+        <div class="computed-chip-val" id="chip-prop">—</div>
+        <div class="computed-chip-unit">м²</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Даты и акт</div>
+  <div class="card glass">
+    <div class="field" onclick="editField('act_number')">
+      <div class="field-icon-wrap">📜</div>
+      <div class="field-body">
+        <div class="field-label">Номер акта</div>
+        <div class="field-value mono ok" id="fld-act_number">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('diving_date')">
+      <div class="field-icon-wrap">🤿</div>
+      <div class="field-body">
+        <div class="field-label">Дата осмотра</div>
+        <div class="field-value mono" id="fld-diving_date">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('date_start')">
+      <div class="field-icon-wrap">📆</div>
+      <div class="field-body">
+        <div class="field-label">Начало периода</div>
+        <div class="field-value mono" id="fld-date_start">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+    <div class="field" onclick="editField('date_end')">
+      <div class="field-icon-wrap">📆</div>
+      <div class="field-body">
+        <div class="field-label">Конец периода</div>
+        <div class="field-value mono" id="fld-date_end">—</div>
+      </div>
+      <div class="field-arrow">›</div>
+    </div>
+  </div>
+
+  <div class="section-label">Контрагент</div>
+  <div class="card glass">
+    <div class="company-grid" id="companyGrid"></div>
+  </div>
+
+  <div class="section-label">Отправить агенту</div>
+  <div class="card glass email-list" id="emailContainer"></div>
+
+  <div class="section-label">Номер документов</div>
+  <div class="card glass">
+    <div class="startnum-block">
+      <button class="startnum-btn" onclick="changeNum(-1)">−</button>
+      <input class="startnum-input" type="number" id="startNum" value="146" min="1" inputmode="numeric">
+      <button class="startnum-btn" onclick="changeNum(1)">+</button>
+    </div>
+    <div class="startnum-hint" id="startNumHint">Рекомендуется: следующий в БД</div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-secondary" onclick="sendCancel()">✕ Отмена</button>
+    <button class="btn-main" id="btnGenerate" onclick="submitToBot()">⚡ Генерировать</button>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН 2: ЗАГРУЗКА ===== -->
+<div id="screen-process" class="fullscreen-overlay">
+  <div class="flying-airplane" id="flyingPlane">✈️</div>
+  
+  <div class="loader-rings" id="loaderRings">
+    <div class="loader-core" id="loaderCore">⚙️</div>
+  </div>
+  <div class="loader-text" id="loaderTitle">Конвейер работает</div>
+  <div class="loader-sub" id="processStatus">Инициализация модулей...</div>
+  
+  <div class="loader-bar-wrap" id="loaderBarWrap">
+    <div class="loader-bar" id="loaderBar"></div>
+  </div>
+  
+  <!-- Чек-лист стадий прогресса -->
+  <div class="process-steps" id="processSteps">
+    <div class="step-item" id="step-generating">
+      <div class="step-icon">1</div>
+      <div class="step-name">Сборка документов Word</div>
+    </div>
+    <div class="step-item" id="step-converting">
+      <div class="step-icon">2</div>
+      <div class="step-name">Конвертация в PDF формат</div>
+    </div>
+    <div class="step-item" id="step-sending_zip">
+      <div class="step-icon">3</div>
+      <div class="step-name">Отправка архива в Telegram</div>
+    </div>
+    <div class="step-item" id="step-waiting_for_confirmation">
+      <div class="step-icon">4</div>
+      <div class="step-name">Подтверждение отправки</div>
+    </div>
+    <div class="step-item" id="step-sending_emails">
+      <div class="step-icon">5</div>
+      <div class="step-name">Доставка писем адресату</div>
+    </div>
+  </div>
+
+  <!-- Карточка подтверждения отправки -->
+  <div class="confirm-card" id="confirmCard">
+    <div class="confirm-card-title">Архив готов к проверке!</div>
+    <div class="confirm-card-sub">Бот отправил ZIP-архив в ваш чат Telegram. Проверьте файлы перед финальной отправкой на почту.</div>
+    <div class="confirm-card-btns">
+      <button class="btn-confirm-cancel" id="btnConfirmCancel">✕ Отменить</button>
+      <button class="btn-confirm-send" id="btnConfirmSend">🚀 Отправить</button>
+    </div>
+  </div>
+
+  <!-- Блок ошибки -->
+  <div class="error-block" id="errorBlock">
+    <div class="loader-text" style="color: var(--danger)">Произошел сбой</div>
+    <div class="error-msg" id="errorMsgText">Детали ошибки отсутствуют.</div>
+    <button class="btn-err-back" onclick="hideLoaderAndGoBack()">⬅️ Вернуться назад</button>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН 3: УСПЕХ ===== -->
+<div id="screen-success" class="fullscreen-overlay">
+  <div class="success-anim">
+    <div class="success-ring"></div>
+    <div class="success-icon-inner">🌊</div>
+  </div>
+  <div class="success-title">Пакет запущен!</div>
+  <div class="success-sub">Бот пришлёт ZIP-архив в чат.<br>Письмо агенту поставлено в очередь.</div>
+</div>
+
+<!-- ===== MODAL: ПОЛЕ ===== -->
+<div class="modal-overlay" id="editModal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">Редактировать</div>
+    <div class="modal-subtitle" id="modalSub">Введите новое значение</div>
+    <input class="modal-input" id="modalInput" autocomplete="off" spellcheck="false" autocorrect="off">
+    <div class="modal-row">
+      <button class="modal-btn cancel" onclick="closeModal()">Отмена</button>
+      <button class="modal-btn confirm" onclick="saveModal()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ОСАДКА ===== -->
+<div class="modal-overlay" id="draftModal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Осадка FWD / AFT</div>
+    <div class="modal-subtitle">Введите осадку носом и кормой (м)</div>
+    <input class="modal-input" id="draftFore" placeholder="FWD — нос" type="number" step="0.1" inputmode="decimal">
+    <input class="modal-input" id="draftAft"  placeholder="AFT — корма" type="number" step="0.1" inputmode="decimal">
+    <div class="modal-row">
+      <button class="modal-btn cancel" onclick="closeDraftModal()">Отмена</button>
+      <button class="modal-btn confirm" onclick="saveDraft()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+tg.enableClosingConfirmation();
+
+// ── STATE ──
+let state = {};
+let currentField = null;
+let selectedEmail = "";
+
+const EMAILS = [
+  "aquatechexpert@mail.ru",
+  "agent@zddrostov.com",
+  "agent@seagatenvr.ru",
+  "maritimenvrsk@mail.ru"
+];
+
+const COMPANIES = {
+  almar:   { title: "Альмар\nСервисиз",  icon: "⚓", short: "Альмар Сервисиз" },
+  zheldor: { title: "Желдор\nДоставка",  icon: "🚂", short: "ЖелдорДоставка" },
+  seagate: { title: "МА\nСИГЕЙТ",        icon: "🌊", short: "МА СИГЕЙТ" }
+};
+
+const FIELD_META = {
+  vessel_name:  { label: "Название судна",        hint: "Только название, без MV/MT",                    upper: true  },
+  ship_type:    { label: "Тип судна",              hint: "TANKER / BULK CARRIER / GENERAL CARGO / CONTAINER", upper: true  },
+  imo:          { label: "IMO номер",              hint: "7 цифр, напр. 9123456",                         upper: false },
+  flag:         { label: "Флаг / Страна",          hint: "Название страны на английском",                 upper: true  },
+  owner:        { label: "Судовладелец",           hint: "Полное наименование компании",                  upper: true  },
+  master_name:  { label: "ФИО Капитана",           hint: "Имя Фамилия заглавными",                       upper: true  },
+  loa:          { label: "LOA (м)",                hint: "Длина наибольшая, напр. 141.2",                 upper: false },
+  breadth:      { label: "Breadth (м)",            hint: "Ширина наибольшая, напр. 22.8",                 upper: false },
+  act_number:   { label: "Номер акта",             hint: "Формат: ДД/ММ/01",                             upper: false },
+  diving_date:  { label: "Дата осмотра",           hint: "Формат: ДД.ММ.ГГГГ",                           upper: false },
+  date_start:   { label: "Начало периода",         hint: "Формат: ДД.ММ.ГГГГ",                           upper: false },
+  date_end:     { label: "Конец периода",          hint: "Формат: ДД.ММ.ГГГГ",                           upper: false },
+};
+
+// ── INIT ──
+window.onload = () => {
+  let raw = tg.initData || "";
+  let vesselData = null;
+  try {
+    const params = new URLSearchParams(raw);
+    const startParam = params.get("start_param") || new URLSearchParams(location.search).get("data");
+    if (startParam) vesselData = JSON.parse(decodeURIComponent(atob(startParam)));
+  } catch(e) {}
+
+  if (!vesselData) {
+    vesselData = {
+      vessel_name: "OCEAN PIONEER", ship_type: "BULK CARRIER", imo: "9876543", flag: "PANAMA",
+      owner: "PACIFIC SHIPPING CO.", master_name: "JOHN SMITH", loa: "190.0", breadth: "28.5",
+      draft_fore: "7.2", draft_aft: "7.8", act_number: "27/06/01", diving_date: "27.06.2026",
+      date_start: "26.06.2026", date_end: "30.06.2026", current_date: "27.06.2026",
+      company_key: "", last_doc_number: 145
+    };
+  }
+  state = { ...vesselData };
+  if (!state.company_key) state.company_key = "";
+
+  const recNum = (parseInt(state.last_doc_number) || 145) + 1;
+  document.getElementById("startNum").value = recNum;
+  document.getElementById("startNumHint").textContent = `Рекомендуется: ${recNum}`;
+  document.getElementById("headerSub").textContent = `${state.vessel_name || 'Без названия'} · Проверка`;
+
+  renderAll();
+  buildCompanyGrid();
+  buildEmailList();
+};
+
+// ── RENDER ──
+function renderAll() {
+  const set = (id, val, extraClass) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val || "—";
+    el.classList.toggle("dim", !val);
+  };
+
+  set("fld-vessel_name",  state.vessel_name);
+  set("fld-ship_type",    state.ship_type);
+  set("fld-imo",          state.imo);
+  set("fld-flag",         state.flag);
+  set("fld-owner",        state.owner);
+  set("fld-master_name",  state.master_name);
+  set("fld-loa",          state.loa    ? state.loa + " м"    : null);
+  set("fld-breadth",      state.breadth ? state.breadth + " м" : null);
+  set("fld-draft",        (state.draft_fore && state.draft_aft) ? `${state.draft_fore} / ${state.draft_aft} м` : null);
+  set("fld-act_number",   state.act_number);
+  set("fld-diving_date",  state.diving_date);
+  set("fld-date_start",   state.date_start);
+  set("fld-date_end",     state.date_end);
+
+  recalcWSA();
+}
+
+function recalcWSA() {
+  const loa = parseFloat(state.loa) || 0;
+  const b   = parseFloat(state.breadth) || 0;
+  const df  = parseFloat(state.draft_fore) || 0;
+  const da  = parseFloat(state.draft_aft) || 0;
+  const st  = (state.ship_type || "").toLowerCase();
+
+  let wsa = 0, prop = 0;
+  if (loa > 0 && b > 0) {
+    const lbp  = loa * 0.95;
+    const tavg = (df + da) / 2;
+    const cb   = st.includes("tanker") ? 0.81 : (st.includes("bulk") ? 0.80 : (st.includes("container") ? 0.65 : 0.75));
+    wsa = 1.02 * lbp * (cb * b + 1.7 * tavg);
+
+    if (st.includes("tanker") || st.includes("bulk"))
+      prop = loa > 300 ? 103 : (loa > 200 ? 60 : 26);
+    else if (st.includes("container"))
+      prop = loa > 180 ? 52.9 : 35;
+    else
+      prop = 13;
+  }
+
+  state.wetted_surface = wsa.toFixed(2);
+  state.propeller_area = prop.toFixed(2);
+  document.getElementById("chip-wsa").textContent  = wsa  > 0 ? wsa.toFixed(0)  : "—";
+  document.getElementById("chip-prop").textContent = prop > 0 ? prop.toFixed(1) : "—";
+}
+
+// ── COMPANY GRID ──
+function buildCompanyGrid() {
+  const grid = document.getElementById("companyGrid");
+  grid.innerHTML = "";
+  for (const [key, co] of Object.entries(COMPANIES)) {
+    const el = document.createElement("div");
+    el.className = "company-pill" + (state.company_key === key ? " selected" : "");
+    el.innerHTML = `<div class="company-pill-icon">${co.icon}</div><div class="company-pill-name">${co.title}</div>`;
+    el.onclick = () => {
+      state.company_key = key;
+      document.querySelectorAll(".company-pill").forEach(p => p.classList.remove("selected"));
+      el.classList.add("selected");
+      tg.HapticFeedback.selectionChanged();
+    };
+    grid.appendChild(el);
+  }
+}
+
+// ── MODALS ──
+function editField(f) {
+  if (!FIELD_META[f]) return;
+  currentField = f;
+  document.getElementById("modalTitle").textContent = FIELD_META[f].label;
+  document.getElementById("modalSub").textContent   = FIELD_META[f].hint;
+  const inp = document.getElementById("modalInput");
+  inp.value = state[f] || "";
+  inp.inputMode = ["loa","breadth"].includes(f) ? "decimal" : "text";
+  document.getElementById("editModal").classList.add("open");
+  setTimeout(() => inp.focus(), 350);
+  tg.HapticFeedback.impactOccurred("light");
+}
+
+function editDraft() {
+  document.getElementById("draftFore").value = state.draft_fore || "";
+  document.getElementById("draftAft").value  = state.draft_aft  || "";
+  document.getElementById("draftModal").classList.add("open");
+  setTimeout(() => document.getElementById("draftFore").focus(), 350);
+  tg.HapticFeedback.impactOccurred("light");
+}
+
+function closeModal()      { document.getElementById("editModal").classList.remove("open"); document.getElementById("modalInput").blur(); }
+function closeDraftModal() { document.getElementById("draftModal").classList.remove("open"); }
+function closeModalOutside(e) { if (e.target === e.currentTarget) { closeModal(); closeDraftModal(); } }
+
+function saveModal() {
+  let val = document.getElementById("modalInput").value.trim();
+  if (FIELD_META[currentField].upper) val = val.toUpperCase();
+  state[currentField] = val;
+  closeModal();
+  renderAll();
+  tg.HapticFeedback.impactOccurred("medium");
+}
+
+function saveDraft() {
+  state.draft_fore = document.getElementById("draftFore").value.replace(",", ".");
+  state.draft_aft  = document.getElementById("draftAft").value.replace(",", ".");
+  closeDraftModal();
+  renderAll();
+  tg.HapticFeedback.impactOccurred("medium");
+}
+
+function changeNum(delta) {
+  const inp = document.getElementById("startNum");
+  inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  tg.HapticFeedback.selectionChanged();
+}
+
+// ── SCREENS ──
+function switchScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = document.getElementById(id);
+  target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ШАГ 1: Отправка данных в бот (сразу при нажатии Генерировать)
+// Настройка URL бэкенда
+const BACKEND_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+  ? "http://127.0.0.1:8000"
+  : "https://uwiapp.onrender.com"; // Замените на реальный URL вашего сервиса Render
+
+let pollingInterval = null;
+let currentTaskId = null;
+
+// ШАГ 1: Запуск генерации через API
+function submitToBot() {
+  if (!state.company_key) {
+    tg.showAlert("Пожалуйста, выберите компанию-контрагента.");
+    return;
+  }
+
+  const btn = document.getElementById("btnGenerate");
+  if (btn) btn.disabled = true;
+  tg.HapticFeedback.impactOccurred("heavy");
+
+  // Инициализация лоадера
+  resetLoaderUI();
+  document.getElementById("screen-process").classList.add("show");
+  updateLoaderStatus("Инициализация...", "5%", "⚙️");
+
+  recalcWSA();
+
+  // Получаем chat_id из данных Telegram Web App (или используем дефолтный для тестов)
+  let chatId = 322318469; // Дефолтный ID
+  try {
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+      chatId = tg.initDataUnsafe.user.id;
+    }
+  } catch (e) {
+    console.warn("Не удалось получить user.id из Web App:", e);
+  }
+
+  const payload = {
+    vessel_name: state.vessel_name || "",
+    ship_type: state.ship_type || "GENERAL CARGO",
+    imo: state.imo || "",
+    flag: state.flag || "",
+    owner: state.owner || "",
+    master_name: state.master_name || "",
+    loa: state.loa || "0.0",
+    breadth: state.breadth || "0.0",
+    draft_fore: state.draft_fore || "0.0",
+    draft_aft: state.draft_aft || "0.0",
+    act_number: state.act_number || "",
+    diving_date: state.diving_date || "",
+    date_start: state.date_start || "",
+    date_end: state.date_end || "",
+    current_date: state.current_date || "",
+    wetted_surface: (state.wetted_surface || "0.0").toString(),
+    propeller_area: (state.propeller_area || "0.0").toString(),
+    company_key: state.company_key,
+    start_num: parseInt(document.getElementById("startNum").value) || 146,
+    email_dest: selectedEmail,
+    chat_id: chatId
+  };
+
+  // Отправляем POST запрос к бэкенду
+  fetch(`${BACKEND_URL}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    return res.json();
+  })
+  .then(data => {
+    if (data.task_id) {
+      currentTaskId = data.task_id;
+      // Начинаем опрос статуса
+      startPolling(data.task_id);
+    } else {
+      showError("Бэкенд не вернул ID задачи.");
+    }
+  })
+  .catch(err => {
+    console.error("Ошибка запроса генерации:", err);
+    showError(`Не удалось связаться с сервером API. Проверьте адрес бэкенда:\n${err.message}`);
+  });
+}
+
+function resetLoaderUI() {
+  document.getElementById("loaderRings").style.display = "flex";
+  document.getElementById("loaderTitle").style.display = "block";
+  document.getElementById("processStatus").style.display = "block";
+  document.getElementById("loaderBarWrap").style.display = "block";
+  document.getElementById("processSteps").style.display = "flex";
+  document.getElementById("confirmCard").classList.remove("show");
+  document.getElementById("errorBlock").classList.remove("show");
+  document.getElementById("flyingPlane").style.display = "none";
+  
+  // Сбрасываем шаги
+  document.querySelectorAll(".step-item").forEach(el => {
+    el.className = "step-item";
+    const stName = el.id.replace("step-", "");
+    el.querySelector(".step-icon").textContent = stName === "generating" ? "1" : 
+                                                 stName === "converting" ? "2" :
+                                                 stName === "sending_zip" ? "3" :
+                                                 stName === "waiting_for_confirmation" ? "4" : "5";
+  });
+}
+
+function updateLoaderStatus(statusMsg, progressPercent, coreIcon) {
+  const statusEl = document.getElementById("processStatus");
+  const barEl    = document.getElementById("loaderBar");
+  const coreEl   = document.getElementById("loaderCore");
+  
+  if (statusEl) statusEl.textContent = statusMsg;
+  if (barEl) barEl.style.width = progressPercent;
+  if (coreEl && coreIcon) coreEl.textContent = coreIcon;
+}
+
+function startPolling(taskId) {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(() => {
+    fetch(`${BACKEND_URL}/api/status/${taskId}`)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      handleStatusUpdate(data);
+    })
+    .catch(err => {
+      console.warn("Ошибка опроса статуса:", err);
+    });
+  }, 1200);
+}
+
+function handleStatusUpdate(data) {
+  const status = data.status;
+  const progress = data.progress + "%";
+  const message = data.message;
+  
+  updateStepsUI(status);
+
+  if (status === "preparing") {
+    updateLoaderStatus(message, progress, "⚙️");
+  } 
+  else if (status === "generating_docs") {
+    updateLoaderStatus(message, progress, "📝");
+  } 
+  else if (status === "converting_pdfs") {
+    updateLoaderStatus(message, progress, "📄");
+  } 
+  else if (status === "sending_zip") {
+    updateLoaderStatus(message, progress, "📦");
+  } 
+  else if (status === "waiting_for_confirmation") {
+    clearInterval(pollingInterval);
+    updateLoaderStatus(message, progress, "📥");
+    showConfirmCard();
+  } 
+  else if (status === "sending_emails") {
+    updateLoaderStatus(message, progress, "📡");
+  } 
+  else if (status === "completed") {
+    clearInterval(pollingInterval);
+    showSuccessScreen();
+  } 
+  else if (status === "failed") {
+    clearInterval(pollingInterval);
+    showError(data.error || message);
+  }
+}
+
+function updateStepsUI(currentStatus) {
+  const steps = ["generating_docs", "converting_pdfs", "sending_zip", "waiting_for_confirmation", "sending_emails"];
+  
+  const mapping = {
+    "preparing": "step-generating",
+    "generating_docs": "step-generating",
+    "converting_pdfs": "step-converting",
+    "sending_zip": "step-sending_zip",
+    "waiting_for_confirmation": "step-waiting_for_confirmation",
+    "sending_emails": "step-sending_emails"
+  };
+
+  const activeId = mapping[currentStatus];
+  let passedActive = false;
+
+  steps.forEach(st => {
+    const stepHtmlId = "step-" + (st === "generating_docs" ? "generating" : st === "converting_pdfs" ? "converting" : st);
+    const el = document.getElementById(stepHtmlId);
+    if (!el) return;
+
+    if (stepHtmlId === activeId) {
+      el.className = "step-item active";
+      passedActive = true;
+    } else if (!passedActive) {
+      el.className = "step-item completed";
+      el.querySelector(".step-icon").textContent = "✓";
+    } else {
+      el.className = "step-item";
+    }
+  });
+}
+
+function showConfirmCard() {
+  document.getElementById("loaderBar").style.width = "85%";
+  document.getElementById("confirmCard").classList.add("show");
+  
+  document.getElementById("btnConfirmSend").onclick = () => confirmAction("send");
+  document.getElementById("btnConfirmCancel").onclick = () => confirmAction("cancel");
+}
+
+function confirmAction(action) {
+  document.getElementById("confirmCard").classList.remove("show");
+  
+  if (action === "send") {
+    updateLoaderStatus("Отправка писем...", "90%", "📡");
+    document.getElementById("flyingPlane").style.display = "block";
+  } else {
+    updateLoaderStatus("Отмена операции...", "90%", "🗑");
+  }
+
+  fetch(`${BACKEND_URL}/api/confirm/${currentTaskId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: action })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (action === "send") {
+      document.getElementById("flyingPlane").style.display = "none";
+      if (data.status === "success" || data.status === "partial_success") {
+        showSuccessScreen();
+      } else {
+        showError(data.message || "Ошибка отправки почты.");
+      }
+    } else {
+      hideLoaderAndGoBack();
+    }
+  })
+  .catch(err => {
+    document.getElementById("flyingPlane").style.display = "none";
+    showError(`Сетевой сбой при подтверждении:\n${err.message}`);
+  });
+}
+
+function showSuccessScreen() {
+  document.getElementById("screen-process").classList.remove("show");
+  document.getElementById("screen-success").classList.add("show");
+  tg.HapticFeedback.notificationOccurred("success");
+  setTimeout(() => {
+    tg.close();
+  }, 2500);
+}
+
+function showError(msg) {
+  document.getElementById("loaderRings").style.display = "none";
+  document.getElementById("loaderTitle").style.display = "none";
+  document.getElementById("processStatus").style.display = "none";
+  document.getElementById("loaderBarWrap").style.display = "none";
+  document.getElementById("processSteps").style.display = "none";
+  document.getElementById("confirmCard").classList.remove("show");
+  
+  document.getElementById("errorMsgText").textContent = msg;
+  document.getElementById("errorBlock").classList.add("show");
+  tg.HapticFeedback.notificationOccurred("error");
+}
+
+function hideLoaderAndGoBack() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  document.getElementById("screen-process").classList.remove("show");
+  const btn = document.getElementById("btnGenerate");
+  if (btn) btn.disabled = false;
+}
+
+function buildEmailList() {
+  const container = document.getElementById("emailContainer");
+  container.innerHTML = "";
+
+  EMAILS.forEach(em => {
+    const div = document.createElement("div");
+    div.className = "email-opt";
+    div.id = "opt-" + em.replace(/[@.]/g, '-');
+    div.innerHTML = `
+      <div class="indicator"></div>
+      <div class="email-text">
+        <div class="email-addr">${em}</div>
+      </div>`;
+    div.onclick = () => selectEmail(em);
+    container.appendChild(div);
+  });
+
+  const skipDiv = document.createElement("div");
+  skipDiv.className = "email-opt skip selected";
+  skipDiv.id = "opt-skip";
+  skipDiv.innerHTML = `
+    <div class="indicator"></div>
+    <div class="email-text">
+      <div class="email-addr">🚫 Только ZIP в чат</div>
+      <div class="email-hint">Без отправки агенту</div>
+    </div>`;
+  skipDiv.onclick = () => selectEmail("");
+  container.appendChild(skipDiv);
+}
+
+function selectEmail(em) {
+  selectedEmail = em;
+  document.querySelectorAll(".email-opt").forEach(el => el.classList.remove("selected"));
+  if (em === "") {
+    document.getElementById("opt-skip").classList.add("selected");
+  } else {
+    document.getElementById("opt-" + em.replace(/[@.]/g, '-')).classList.add("selected");
+  }
+  tg.HapticFeedback.selectionChanged();
+}
+
+function backToMain() { switchScreen("screen-main"); }
+
+function sendCancel() {
+  tg.showConfirm("Отменить работу с этим судном?", (ok) => {
+    if (ok) {
+      try { tg.sendData(JSON.stringify({ action: "cancel" })); } catch(e) {}
+      tg.close();
+    }
+  });
+}
+
+document.getElementById("modalInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") saveModal();
+});
+</script>
+</body>
+</html>
