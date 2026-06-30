@@ -170,7 +170,7 @@ COMPANIES_DATA = {
     },
     "seagate": {
         "title": "ООО «МА СИГЕЙТ»",
-        "company_contract": "Договор с ООО «МА СИГЕЙТ» № 5 от 01.06.2026/Agreement with «MA SEAGATE» LTD No.5 dd 01.06.2026",
+        "company_contract": "Договор с ООО «МА СИГЕЙТ» № 1 от 15.04.2026/Agreement with «MA SEAGATE» LTD No.1 dd 15.04.2026",
         "company_short": "МА СИГЕЙТ",
         "company_full": "ООО «МА СИГЕЙТ»/MA SEAGATE LTD."
     }
